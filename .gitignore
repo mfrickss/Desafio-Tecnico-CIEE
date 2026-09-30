@@ -1,0 +1,56 @@
+## Visual Studio / .NET
+bin/
+obj/
+*.user
+.vs/
+
+## Node / Angular
+**/node_modules/
+**/.angular/
+**/dist/
+**/tmp/
+**/out-tsc/
+npm-debug.log*
+yarn-error.log*
+
+## Logs & Runtime
+*.log
+api.log
+api.err.log
+
+# Compiled output
+/bazel-out
+
+# IDEs and editors
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/mcp.json
+.history/*
+
+# Miscellaneous
+/.angular/cache
+.sass-cache/
+/connect.lock
+/coverage
+/libpeerconnection.log
+testem.log
+/typings
+__screenshots__/
+
+# System files
+.DS_Store
+Thumbs.db
+
+/context
