@@ -1,0 +1,201 @@
+﻿<div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+  <!-- Cabecalho da Pagina -->
+  <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Cadastro de Candidato</h1>
+      <p class="mt-1 text-sm text-slate-500">
+        Cadastre um candidato manualmente ou anexe um currículo em PDF para preenchimento automático.
+      </p>
+    </div>
+    <a routerLink="/" class="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-800 transition">
+      &larr; Voltar para listagem
+    </a>
+  </div>
+
+  <!-- Area de Upload de PDF (Opcional) -->
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8 transition hover:border-slate-300">
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center space-x-3">
+        <div class="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-slate-800">Preenchimento Inteligente via PDF</h2>
+          <p class="text-xs text-slate-500">Opcional. Formato PDF de até 5 MB.</p>
+        </div>
+      </div>
+      @if (arquivoSelecionado()) {
+        <button type="button" (click)="removerArquivo()" class="text-xs text-rose-600 hover:underline">
+          Remover arquivo
+        </button>
+      }
+    </div>
+
+    <!-- Area de Drop/Clique -->
+    <div 
+      (dragover)="aoArrastarSobre($event)" 
+      (dragleave)="aoSairArrasto($event)" 
+      (drop)="aoSoltarArquivo($event)"
+      (click)="fileInput.click()"
+      [class.border-indigo-500]="estaArrastando()"
+      [class.bg-indigo-50]="estaArrastando()"
+      class="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-400 hover:bg-slate-50 transition">
+      
+      <input 
+        #fileInput 
+        type="file" 
+        accept="application/pdf,.pdf" 
+        class="hidden" 
+        (click)="$event.stopPropagation()"
+        (change)="aoSelecionarArquivo($event)" 
+      />
+
+      @if (extraindoPdf()) {
+        <div class="flex flex-col items-center justify-center py-4">
+          <div class="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+          <p class="text-sm font-medium text-slate-700">Lendo e extraindo dados do currículo...</p>
+          <p class="text-xs text-slate-400 mt-1">Identificando nome, contatos e informações chave.</p>
+        </div>
+      } @else if (arquivoSelecionado(); as arq) {
+        <div class="flex flex-col items-center py-2">
+          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 mb-2">
+            Arquivo Carregado
+          </span>
+          <p class="text-sm font-semibold text-slate-800">{{ arq.name }}</p>
+          <p class="text-xs text-slate-500">{{ (arq.size / 1024 / 1024).toFixed(2) }} MB</p>
+          <p class="text-xs text-indigo-600 mt-2">Clique ou arraste outro PDF para substituir</p>
+        </div>
+      } @else {
+        <div class="py-2">
+          <svg class="mx-auto h-10 w-10 text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <p class="text-sm text-slate-600 font-medium">
+            Clique para selecionar ou arraste o arquivo PDF aqui
+          </p>
+          <p class="text-xs text-slate-400 mt-1">
+            A extração preencherá os campos abaixo automaticamente.
+          </p>
+        </div>
+      }
+    </div>
+
+    <!-- Alertas do PDF -->
+    @if (mensagemPdf(); as msg) {
+      <div [class]="tipoMensagemPdf() === 'sucesso' ? 'mt-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-xs' : 'mt-4 p-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-xs'">
+        {{ msg }}
+      </div>
+    }
+  </div>
+
+  <!-- Formulario Unificado de Cadastro -->
+  <form [formGroup]="form" (ngSubmit)="salvar()" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 sm:p-8">
+    <h2 class="text-lg font-semibold text-slate-900 border-b border-slate-100 pb-3 mb-6">
+      Dados do Candidato
+    </h2>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      <!-- Nome Completo (Obrigatorio) -->
+      <div class="sm:col-span-2">
+        <label class="block text-sm font-medium text-slate-700 mb-1">
+          Nome Completo <span class="text-rose-500">*</span>
+        </label>
+        <input 
+          type="text" 
+          formControlName="nomeCompleto"
+          placeholder="Ex: Ana Clara Souza"
+          class="w-full px-3 py-2 border rounded-lg text-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          [class.border-rose-400]="campoInvalido('nomeCompleto')"
+          [class.border-slate-300]="!campoInvalido('nomeCompleto')"
+        />
+        @if (campoInvalido('nomeCompleto')) {
+          <p class="mt-1 text-xs text-rose-500">O nome completo é obrigatório (mínimo 3 caracteres).</p>
+        }
+      </div>
+
+      <!-- E-mail (Obrigatorio) -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">
+          E-mail <span class="text-rose-500">*</span>
+        </label>
+        <input 
+          type="email" 
+          formControlName="email"
+          placeholder="exemplo@dominio.com"
+          class="w-full px-3 py-2 border rounded-lg text-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          [class.border-rose-400]="campoInvalido('email')"
+          [class.border-slate-300]="!campoInvalido('email')"
+        />
+        @if (campoInvalido('email')) {
+          <p class="mt-1 text-xs text-rose-500">Informe um e-mail válido.</p>
+        }
+      </div>
+
+      <!-- Telefone -->
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">
+          Telefone / WhatsApp
+        </label>
+        <input 
+          type="text" 
+          formControlName="telefone"
+          placeholder="(11) 98765-4321"
+          class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+      </div>
+
+      <!-- Area ou Cargo de Interesse -->
+      <div class="sm:col-span-2">
+        <label class="block text-sm font-medium text-slate-700 mb-1">
+          Área ou Cargo de Interesse
+        </label>
+        <input 
+          type="text" 
+          formControlName="cargoInteresse"
+          placeholder="Ex: Desenvolvedor .NET Pleno, Analista de Dados"
+          class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+      </div>
+
+      <!-- Resumo Profissional -->
+      <div class="sm:col-span-2">
+        <label class="block text-sm font-medium text-slate-700 mb-1">
+          Resumo Profissional
+        </label>
+        <textarea 
+          formControlName="resumoProfissional"
+          rows="4"
+          placeholder="Breve descrição das experiências, formação e competências principais..."
+          class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        ></textarea>
+      </div>
+    </div>
+
+    <!-- Mensagens de Alerta Geral -->
+    @if (mensagemErro(); as erro) {
+      <div class="mt-6 p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-sm">
+        {{ erro }}
+      </div>
+    }
+
+    <!-- Botoes de Acao -->
+    <div class="mt-8 pt-5 border-t border-slate-100 flex items-center justify-end space-x-3">
+      <a routerLink="/" class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition">
+        Cancelar
+      </a>
+      <button 
+        type="submit" 
+        [disabled]="salvando()"
+        class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition disabled:opacity-50 flex items-center space-x-2">
+        @if (salvando()) {
+          <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          <span>Salvando...</span>
+        } @else {
+          <span>Salvar Candidato</span>
+        }
+      </button>
+    </div>
+  </form>
+</div>
