@@ -1,4 +1,5 @@
-﻿using Ciee.Curriculos.Api.Data;
+using System.Text;
+using Ciee.Curriculos.Api.Data;
 using Ciee.Curriculos.Api.DTOs;
 using Ciee.Curriculos.Api.Models;
 using Ciee.Curriculos.Api.Services;
@@ -12,6 +13,8 @@ namespace Ciee.Curriculos.Api.Controllers;
 [Route("api/[controller]")]
 public class CandidatosController : ControllerBase
 {
+    private static readonly byte[] PdfMagicBytes = Encoding.ASCII.GetBytes("%PDF-");
+
     private readonly AppDbContext _context;
     private readonly IPdfExtractionService _pdfExtractionService;
     private readonly IValidator<CriarCandidatoDto> _validator;
@@ -30,21 +33,24 @@ public class CandidatosController : ControllerBase
     }
 
     [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<CandidatoResponseDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<CandidatoResponseDto>>> Listar([FromQuery] string? busca)
     {
         var query = _context.Candidatos.AsNoTracking().AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(busca))
         {
-            var termo = busca.Trim().ToLower();
+            var termo = busca.Trim();
+            // Sem ToLower() nas colunas para preservar o uso de indices no SQL Server (CI collation)
             query = query.Where(c =>
-                c.NomeCompleto.ToLower().Contains(termo) ||
-                c.Email.ToLower().Contains(termo) ||
-                (c.CargoInteresse != null && c.CargoInteresse.ToLower().Contains(termo)));
+                c.NomeCompleto.Contains(termo) ||
+                c.Email.Contains(termo) ||
+                (c.CargoInteresse != null && c.CargoInteresse.Contains(termo)));
         }
 
         var candidatos = await query
             .OrderByDescending(c => c.DataCadastro)
+            .Take(100)
             .Select(c => new CandidatoResponseDto(
                 c.Id,
                 c.NomeCompleto,
@@ -60,12 +66,23 @@ public class CandidatosController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(CandidatoResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CandidatoResponseDto>> ObterPorId(Guid id)
     {
         var c = await _context.Candidatos.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (c == null)
         {
-            return NotFound(new { mensagem = "Candidato nao encontrado." });
+            var problem = new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Title = "Candidato não encontrado",
+                Detail = $"Nenhum candidato localizado com o identificador '{id}'.",
+                Instance = HttpContext.Request.Path
+            };
+            problem.Extensions["mensagem"] = "Candidato nao encontrado.";
+
+            return NotFound(problem);
         }
 
         return Ok(new CandidatoResponseDto(
@@ -80,16 +97,30 @@ public class CandidatosController : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType(typeof(CandidatoResponseDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<CandidatoResponseDto>> Criar([FromBody] CriarCandidatoDto dto)
     {
         var validationResult = await _validator.ValidateAsync(dto);
         if (!validationResult.IsValid)
         {
-            return BadRequest(new
+            var errosFormatados = validationResult.Errors
+                .GroupBy(e => e.PropertyName)
+                .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
+
+            var problem = new ValidationProblemDetails(errosFormatados)
             {
-                mensagem = "Dados invalidos para cadastro do candidato.",
-                erros = validationResult.Errors.Select(e => new { campo = e.PropertyName, erro = e.ErrorMessage })
-            });
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Dados inválidos para cadastro do candidato.",
+                Detail = "Um ou mais campos contêm erros de validação.",
+                Instance = HttpContext.Request.Path
+            };
+
+            // Compatibilidade retroativa para clientes que leem mensagem e lista rros
+            problem.Extensions["mensagem"] = "Dados invalidos para cadastro do candidato.";
+            problem.Extensions["erros"] = validationResult.Errors.Select(e => new { campo = e.PropertyName, erro = e.ErrorMessage }).ToList();
+
+            return BadRequest(problem);
         }
 
         var candidato = new Candidato
@@ -121,35 +152,90 @@ public class CandidatosController : ControllerBase
 
     [HttpPost("extrair-pdf")]
     [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(ExtracaoPdfResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
     public IActionResult ExtrairPdf(IFormFile? arquivo)
     {
         if (arquivo == null || arquivo.Length == 0)
         {
-            return BadRequest(new { mensagem = "Nenhum arquivo enviado. Selecione um arquivo PDF." });
+            return CriarProblemBadRequest(
+                "Nenhum arquivo enviado. Selecione um arquivo PDF.",
+                "O corpo da requisição não possui um arquivo anexado.");
         }
 
         const long tamanhoMaximoBytes = 5 * 1024 * 1024; // 5 MB
         if (arquivo.Length > tamanhoMaximoBytes)
         {
-            return BadRequest(new { mensagem = "O arquivo excede o limite maximo permitido de 5 MB." });
+            return CriarProblemBadRequest(
+                "O arquivo excede o limite maximo permitido de 5 MB.",
+                $"Tamanho recebido: {arquivo.Length} bytes. Máximo permitido: {tamanhoMaximoBytes} bytes.");
         }
 
         var extensao = Path.GetExtension(arquivo.FileName).ToLowerInvariant();
         if (extensao != ".pdf" || (arquivo.ContentType != "application/pdf" && !string.IsNullOrEmpty(arquivo.ContentType) && arquivo.ContentType != "application/octet-stream"))
         {
-            return BadRequest(new { mensagem = "Formato de arquivo invalido. Apenas documentos PDF sao aceitos." });
+            return CriarProblemBadRequest(
+                "Formato de arquivo invalido. Apenas documentos PDF sao aceitos.",
+                "A extensão ou o MIME type informado não é suportado.");
         }
 
+        // Validação de segurança de cabeçalho binário (Magic Bytes %PDF-)
         try
         {
             using var stream = arquivo.OpenReadStream();
+            if (!ValidarMagicBytesPdf(stream))
+            {
+                return CriarProblemBadRequest(
+                    "O arquivo enviado não é um PDF válido ou está corrompido.",
+                    "O cabeçalho do arquivo não contém a assinatura binária esperada de um documento PDF (%PDF-).");
+            }
+
+            stream.Position = 0;
             var resultado = _pdfExtractionService.ExtrairDados(stream);
             return Ok(resultado);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erro ao processar arquivo PDF de curriculo.");
-            return StatusCode(500, new { mensagem = "Ocorreu um erro interno ao processar o arquivo PDF." });
+            var problem = new ProblemDetails
+            {
+                Status = StatusCodes.Status500InternalServerError,
+                Title = "Erro interno no processamento",
+                Detail = "Ocorreu um erro interno ao processar o arquivo PDF.",
+                Instance = HttpContext.Request.Path
+            };
+            problem.Extensions["mensagem"] = "Ocorreu um erro interno ao processar o arquivo PDF.";
+
+            return StatusCode(StatusCodes.Status500InternalServerError, problem);
         }
+    }
+
+    private static bool ValidarMagicBytesPdf(Stream stream)
+    {
+        if (!stream.CanRead || stream.Length < PdfMagicBytes.Length)
+        {
+            return false;
+        }
+
+        var buffer = new byte[PdfMagicBytes.Length];
+        var bytesLidos = stream.Read(buffer, 0, buffer.Length);
+
+        return bytesLidos == PdfMagicBytes.Length && buffer.SequenceEqual(PdfMagicBytes);
+    }
+
+    private BadRequestObjectResult CriarProblemBadRequest(string mensagem, string detail)
+    {
+        var problem = new ProblemDetails
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "Requisição inválida",
+            Detail = detail,
+            Instance = HttpContext.Request.Path
+        };
+
+        problem.Extensions["mensagem"] = mensagem;
+
+        return BadRequest(problem);
     }
 }

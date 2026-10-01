@@ -1,4 +1,4 @@
-﻿using Ciee.Curriculos.Api.Data;
+using Ciee.Curriculos.Api.Data;
 using Ciee.Curriculos.Api.DTOs;
 using Ciee.Curriculos.Api.Services;
 using Ciee.Curriculos.Api.Validators;
@@ -17,6 +17,16 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Injecao de Dependencia dos Servicos e Validadores
 builder.Services.AddScoped<IPdfExtractionService, PdfExtractionService>();
 builder.Services.AddScoped<IValidator<CriarCandidatoDto>, CriarCandidatoDtoValidator>();
+
+// Suporte a RFC 7807 (ProblemDetails)
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = context =>
+    {
+        context.ProblemDetails.Instance = context.HttpContext.Request.Path;
+        context.ProblemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
+    };
+});
 
 // Controllers e endpoints
 builder.Services.AddControllers();
@@ -43,6 +53,10 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Tratamento de excecoes nao tratadas via ProblemDetails (RFC 7807)
+app.UseExceptionHandler();
+app.UseStatusCodePages();
 
 // Executa migrations automaticamente em tempo de inicializacao
 using (var scope = app.Services.CreateScope())
