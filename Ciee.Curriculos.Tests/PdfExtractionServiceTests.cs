@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text;
+using Ciee.Curriculos.Api.Common;
 using Ciee.Curriculos.Api.Services;
 using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.Core;
@@ -145,7 +146,6 @@ public class PdfExtractionServiceTests
         page.AddText("Carlos Silva", 16, new PdfPoint(50, 750), font);
         page.AddText("carlos@email.com", 12, new PdfPoint(50, 720), font);
         page.AddText("Resumo:", 14, new PdfPoint(50, 690), font);
-        // Adiciona palavras na mesma linha Y (660), porém inseridas em ordem inversa de X
         page.AddText("Angular", 12, new PdfPoint(240, 660), font);
         page.AddText("e", 12, new PdfPoint(215, 660), font);
         page.AddText("C#", 12, new PdfPoint(180, 660), font);
@@ -230,4 +230,167 @@ public class PdfExtractionServiceTests
         Assert.False(resultado.Sucesso);
         Assert.NotNull(resultado.Mensagem);
     }
+
+    [Fact]
+    public void ExtrairDados_CargosCompostosComVivenciaPratica_DeveCortarExplicacaoEReterApenasCargos()
+    {
+        var builder = new PdfDocumentBuilder();
+        var page = builder.AddPage(PageSize.A4);
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+
+        page.AddText("Marcio Souza", 16, new PdfPoint(50, 750), font);
+        page.AddText("marcio.souza@email.com", 12, new PdfPoint(50, 720), font);
+        page.AddText("Objetivo: Desenvolvedor Junior e Assistente de Desenvolvimento com vivencia pratica no ciclo completo de suste", 12, new PdfPoint(50, 690), font);
+        page.AddText("Resumo: Experiencia em desenvolvimento de software e sustentacao de sistemas.", 12, new PdfPoint(50, 660), font);
+
+        var bytes = builder.Build();
+        using var stream = new MemoryStream(bytes);
+
+        var resultado = _service.ExtrairDados(stream);
+
+        Assert.True(resultado.Sucesso);
+        Assert.Equal("Marcio Souza", resultado.NomeCompleto);
+        Assert.Equal("Desenvolvedor Junior e Assistente de Desenvolvimento", resultado.CargoInteresse);
+    }
+
+    [Fact]
+    public void ExtrairDados_CargoCompostoComBarrasEFormacaoAcademica_DeveCortarFormacao()
+    {
+        var builder = new PdfDocumentBuilder();
+        var page = builder.AddPage(PageSize.A4);
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+
+        page.AddText("Beatriz Lima", 16, new PdfPoint(50, 750), font);
+        page.AddText("Cargo Pretendido: Desenvolvedor Back-End / Web graduado em ADS", 12, new PdfPoint(50, 720), font);
+        page.AddText("beatriz.lima@email.com", 12, new PdfPoint(50, 690), font);
+
+        var bytes = builder.Build();
+        using var stream = new MemoryStream(bytes);
+
+        var resultado = _service.ExtrairDados(stream);
+
+        Assert.True(resultado.Sucesso);
+        Assert.Equal("Beatriz Lima", resultado.NomeCompleto);
+        Assert.Equal("Desenvolvedor Back-End / Web", resultado.CargoInteresse);
+    }
+
+    [Fact]
+    public void ExtrairDados_ProfissaoNaoTI_AdvogadaComSubtituloEPosGraduacao_DeveDelimitarCargoComPrecisao()
+    {
+        var builder = new PdfDocumentBuilder();
+        var page = builder.AddPage(PageSize.A4);
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+
+        page.AddText("Fernanda Carvalho", 16, new PdfPoint(50, 750), font);
+        page.AddText("Advogada Trabalhista Plena pos-graduada em Direito Corporativo", 13, new PdfPoint(50, 730), font);
+        page.AddText("fernanda.carvalho@oab.org.br", 12, new PdfPoint(50, 700), font);
+
+        var bytes = builder.Build();
+        using var stream = new MemoryStream(bytes);
+
+        var resultado = _service.ExtrairDados(stream);
+
+        Assert.True(resultado.Sucesso);
+        Assert.Equal("Fernanda Carvalho", resultado.NomeCompleto);
+        Assert.Equal("Advogada Trabalhista Plena", resultado.CargoInteresse);
+    }
+
+    [Fact]
+    public void ExtrairDados_ProfissaoGestaoMarketingEVendasComExperiencia_DevePreservarEspecialidadeComE()
+    {
+        var builder = new PdfDocumentBuilder();
+        var page = builder.AddPage(PageSize.A4);
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+
+        page.AddText("Roberto Nogueira", 16, new PdfPoint(50, 750), font);
+        page.AddText("roberto@empresa.com", 12, new PdfPoint(50, 720), font);
+        page.AddText("Posicao Desejada: Coordenador de Marketing e Vendas com solida experiencia em prospeccao", 12, new PdfPoint(50, 690), font);
+
+        var bytes = builder.Build();
+        using var stream = new MemoryStream(bytes);
+
+        var resultado = _service.ExtrairDados(stream);
+
+        Assert.True(resultado.Sucesso);
+        Assert.Equal("Roberto Nogueira", resultado.NomeCompleto);
+        Assert.Equal("Coordenador de Marketing e Vendas", resultado.CargoInteresse);
+    }
+
+    [Fact]
+    public void ExtrairDados_SemCargoExplicitoOuResumoComCargo_DeveRetornarNulo()
+    {
+        var builder = new PdfDocumentBuilder();
+        var page = builder.AddPage(PageSize.A4);
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+
+        page.AddText("Juliana Martins", 16, new PdfPoint(50, 750), font);
+        page.AddText("juliana.martins@email.com", 12, new PdfPoint(50, 720), font);
+        page.AddText("Resumo: Profissional dinamica e proativa em busca de novos desafios no mercado.", 12, new PdfPoint(50, 690), font);
+
+        var bytes = builder.Build();
+        using var stream = new MemoryStream(bytes);
+
+        var resultado = _service.ExtrairDados(stream);
+
+        Assert.True(resultado.Sucesso);
+        Assert.Equal("Juliana Martins", resultado.NomeCompleto);
+        Assert.Null(resultado.CargoInteresse);
+    }
+
+    [Theory]
+    [InlineData("Desenvolvedor Júnior e Assistente de Desenvolvimento com vivência prática no ciclo completo de suste", "Desenvolvedor Júnior e Assistente de Desenvolvimento")]
+    [InlineData("Desenvolvedor Back-End / Web graduado em ADS", "Desenvolvedor Back-End / Web")]
+    [InlineData("Advogado Trabalhista Pleno pós-graduado em Direito Corporativo e atuação contenciosa", "Advogado Trabalhista Pleno")]
+    [InlineData("Assistente Administrativo Pleno com sólida experiência no setor financeiro", "Assistente Administrativo Pleno")]
+    [InlineData("Coordenador de Marketing e Vendas - Atuação B2B", "Coordenador de Marketing e Vendas")]
+    public void LimparEDelimitarCargo_CasosReaisCompostos_DeveDelimitarComExatidao(string entrada, string esperado)
+    {
+        var resultado = CargoParsingHelper.LimparEDelimitarCargo(entrada);
+        Assert.Equal(esperado, resultado);
+    }
+
+    [Fact]
+    public void BRK01_LimparEDelimitarCargo_AbreviacoesComPonto_NaoDeveCortarPrematuramente()
+    {
+        var entrada = "Eng. de Software Pleno com vivência prática em microsserviços";
+        var resultado = CargoParsingHelper.LimparEDelimitarCargo(entrada);
+        Assert.Equal("Eng. de Software Pleno", resultado);
+
+        var entradaDev = "Dev. Jr. com experiência em C#";
+        var resultadoDev = CargoParsingHelper.LimparEDelimitarCargo(entradaDev);
+        Assert.Equal("Dev. Jr.", resultadoDev);
+    }
+
+    [Fact]
+    public void BRK04_ExtrairDados_SubtituloComUrlColada_DeveDescartarUrlEReterApenasCargo()
+    {
+        var builder = new PdfDocumentBuilder();
+        var page = builder.AddPage(PageSize.A4);
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+
+        page.AddText("Carlos Eduardo", 16, new PdfPoint(50, 750), font);
+        page.AddText("Arquiteto de Solucoes https://linkedin.com/in/perfil", 12, new PdfPoint(50, 730), font);
+        page.AddText("carlos@email.com", 12, new PdfPoint(50, 700), font);
+
+        var bytes = builder.Build();
+        using var stream = new MemoryStream(bytes);
+
+        var resultado = _service.ExtrairDados(stream);
+
+        Assert.True(resultado.Sucesso);
+        Assert.Equal("Carlos Eduardo", resultado.NomeCompleto);
+        Assert.Equal("Arquiteto de Solucoes", resultado.CargoInteresse);
+    }
+
+    [Fact]
+    public void BRK05_LimparEDelimitarCargo_TextoLongoAcimaDe100Caracteres_DeveLimitarEm100()
+    {
+        var textoLongo = "Arquiteto Corporativo e Lider Tecnico Responsavel por Governanca de Plataformas de Alta Disponibilidade e Projetos Globais de TI";
+        var resultado = CargoParsingHelper.LimparEDelimitarCargo(textoLongo);
+
+        Assert.NotNull(resultado);
+        Assert.True(resultado.Length <= 100);
+        Assert.Equal(100, resultado.Length);
+    }
 }
+
