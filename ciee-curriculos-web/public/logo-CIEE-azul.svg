@@ -1,0 +1,19 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 80" fill="none">
+  <!-- Símbolo CIEE: C estilizado com anéis circulares concêntricos -->
+  <g id="ciee-symbol">
+    <!-- C azul característico -->
+    <path d="M52 14 C28 14 10 32 10 56 C10 80 28 98 52 98 C66 98 78 92 86 82 L72 70 C67 76 60 80 52 80 C38 80 28 69 28 56 C28 43 38 32 52 32 C60 32 67 36 72 42 L86 30 C78 20 66 14 52 14 Z" fill="#003087" transform="matrix(0.55 0 0 0.55 2 7)"/>
+    <!-- Círculos concêntricos e pontos institucionais -->
+    <circle cx="30" cy="38" r="8" fill="#ED6B06"/>
+    <circle cx="30" cy="38" r="4.5" fill="#FFFFFF"/>
+    <circle cx="48" cy="22" r="5" fill="#024089"/>
+    <circle cx="48" cy="54" r="5" fill="#ED6B06"/>
+  </g>
+  <!-- Tipografia Institucional CIEE -->
+  <g id="ciee-text" fill="#003087">
+    <text x="68" y="47" font-family="'Lato', 'Segoe UI', Arial, sans-serif" font-size="34" font-weight="900" letter-spacing="1.5">CIEE</text>
+  </g>
+  <g id="ciee-subtext" fill="#64748B">
+    <text x="69" y="61" font-family="'Lato', 'Segoe UI', Arial, sans-serif" font-size="9" font-weight="700" letter-spacing="0.8">EMPRESA-ESCOLA</text>
+  </g>
+</svg>
