@@ -1,13 +1,49 @@
-import { Component, inject, signal } from '@angular/core';
+﻿import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { CandidatoService } from '../../services/candidato.service';
+import { ExtracaoPdfResponse } from '../../models/candidato.model';
+import { HlmButtonDirective } from '../../shared/ui/button.directive';
+import { HlmBadgeDirective } from '../../shared/ui/badge.directive';
+import { HlmInputDirective } from '../../shared/ui/input.directive';
+import { 
+  HlmCardComponent, 
+  HlmCardHeaderDirective, 
+  HlmCardTitleDirective, 
+  HlmCardDescriptionDirective, 
+  HlmCardContentDirective, 
+  HlmCardFooterDirective 
+} from '../../shared/ui/card.components';
+import { GsapFadeInDirective } from '../../shared/directives/gsap-animate.directive';
+
+export type StatusExtracaoCampo = 'extraido' | 'nao_encontrado' | 'manual';
+
+export interface MapaCamposExtraidos {
+  nomeCompleto: StatusExtracaoCampo;
+  email: StatusExtracaoCampo;
+  telefone: StatusExtracaoCampo;
+  cargoInteresse: StatusExtracaoCampo;
+  resumoProfissional: StatusExtracaoCampo;
+}
 
 @Component({
   selector: 'app-cadastro',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [
+    CommonModule, 
+    ReactiveFormsModule, 
+    HlmButtonDirective,
+    HlmBadgeDirective,
+    HlmInputDirective,
+    HlmCardComponent,
+    HlmCardHeaderDirective,
+    HlmCardTitleDirective,
+    HlmCardDescriptionDirective,
+    HlmCardContentDirective,
+    HlmCardFooterDirective,
+    GsapFadeInDirective
+  ],
   templateUrl: './cadastro.component.html'
 })
 export class CadastroComponent {
@@ -24,6 +60,14 @@ export class CadastroComponent {
   tipoMensagemPdf = signal<'sucesso' | 'aviso'>('sucesso');
   mensagemErro = signal<string | null>(null);
 
+  statusCampos = signal<MapaCamposExtraidos>({
+    nomeCompleto: 'manual',
+    email: 'manual',
+    telefone: 'manual',
+    cargoInteresse: 'manual',
+    resumoProfissional: 'manual'
+  });
+
   form: FormGroup = this.fb.group({
     nomeCompleto: ['', [Validators.required, Validators.minLength(3)]],
     email: ['', [Validators.required, Validators.email]],
@@ -37,19 +81,19 @@ export class CadastroComponent {
     return !!(control && control.invalid && (control.dirty || control.touched));
   }
 
+  pararPropagacao(event?: Event) {
+    event?.stopPropagation();
+  }
+
   aoArrastarSobre(event?: DragEvent) {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
+    event?.preventDefault();
+    event?.stopPropagation();
     this.estaArrastando.set(true);
   }
 
   aoSairArrasto(event?: DragEvent) {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
+    event?.preventDefault();
+    event?.stopPropagation();
     this.estaArrastando.set(false);
   }
 
@@ -58,26 +102,24 @@ export class CadastroComponent {
       event.preventDefault();
       event.stopPropagation();
       this.estaArrastando.set(false);
-      if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
+      if (event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length > 0) {
         this.processarArquivo(event.dataTransfer.files[0]);
       }
     }
   }
 
   aoSelecionarArquivo(event?: Event) {
-    const input = event?.target as HTMLInputElement;
-    if (input?.files && input.files.length > 0) {
+    const input = event ? (event.target as HTMLInputElement) : (document.querySelector('input[type="file"]') as HTMLInputElement);
+    if (input && input.files && input.files.length > 0) {
       const arquivo = input.files[0];
       this.processarArquivo(arquivo);
-      input.value = ''; // Reseta para permitir selecionar o mesmo arquivo novamente
+      input.value = '';
     }
   }
 
   processarArquivo(arquivo: File) {
     this.mensagemPdf.set(null);
     this.mensagemErro.set(null);
-
-    console.log('[Upload PDF] Arquivo selecionado:', arquivo.name, arquivo.size, 'bytes', arquivo.type);
 
     const extensaoPdf = arquivo.name.toLowerCase().endsWith('.pdf');
     if (!extensaoPdf) {
@@ -86,7 +128,7 @@ export class CadastroComponent {
       return;
     }
 
-    const tamanhoMaximo = 5 * 1024 * 1024; // 5 MB
+    const tamanhoMaximo = 5 * 1024 * 1024;
     if (arquivo.size > tamanhoMaximo) {
       this.mensagemPdf.set('O arquivo selecionado ultrapassa o limite máximo de 5 MB.');
       this.tipoMensagemPdf.set('aviso');
@@ -96,11 +138,8 @@ export class CadastroComponent {
     this.arquivoSelecionado.set(arquivo);
     this.extraindoPdf.set(true);
 
-    console.log('[Upload PDF] Enviando FormData para POST /api/candidatos/extrair-pdf...');
-
     this.candidatoService.extrairPdf(arquivo).subscribe({
-      next: (res) => {
-        console.log('[Upload PDF] Resposta do backend recebida:', res);
+      next: (res: ExtracaoPdfResponse) => {
         this.extraindoPdf.set(false);
         if (res.sucesso) {
           if (res.nomeCompleto) this.form.patchValue({ nomeCompleto: res.nomeCompleto });
@@ -109,15 +148,59 @@ export class CadastroComponent {
           if (res.cargoInteresse) this.form.patchValue({ cargoInteresse: res.cargoInteresse });
           if (res.resumoProfissional) this.form.patchValue({ resumoProfissional: res.resumoProfissional });
 
-          this.mensagemPdf.set('Dados extraídos do PDF e preenchidos no formulário. Você pode revisá-los ou complementá-los antes de salvar.');
+          const mapa: MapaCamposExtraidos = {
+            nomeCompleto: res.nomeCompleto ? 'extraido' : 'nao_encontrado',
+            email: res.email ? 'extraido' : 'nao_encontrado',
+            telefone: res.telefone ? 'extraido' : 'nao_encontrado',
+            cargoInteresse: res.cargoInteresse ? 'extraido' : 'nao_encontrado',
+            resumoProfissional: res.resumoProfissional ? 'extraido' : 'nao_encontrado'
+          };
+          this.statusCampos.set(mapa);
+
+          this.mensagemPdf.set('Dados extraídos com sucesso. Complete os dados faltantes destacados abaixo.');
           this.tipoMensagemPdf.set('sucesso');
+
+          // Rolagem verdadeiramente suave até o 1º campo não encontrado
+          setTimeout(() => {
+            const camposOrdem: (keyof MapaCamposExtraidos)[] = [
+              'nomeCompleto', 
+              'email', 
+              'telefone', 
+              'cargoInteresse', 
+              'resumoProfissional'
+            ];
+            const pendente = camposOrdem.find((c) => mapa[c] === 'nao_encontrado');
+            if (pendente) {
+              const seletor = '[formControlName="' + pendente + '"]';
+              const elemento = document.querySelector(seletor) as HTMLElement;
+              if (elemento) {
+                // Cálculo de posição com desconto da barra sticky (80px de margem)
+                const posicaoY = elemento.getBoundingClientRect().top + window.scrollY - 100;
+                window.scrollTo({
+                  top: Math.max(0, posicaoY),
+                  behavior: 'smooth'
+                });
+
+                // Foco após a conclusão da rolagem para não interromper a animação suave
+                setTimeout(() => {
+                  elemento.focus({ preventScroll: true });
+                }, 450);
+              }
+            }
+          }, 150);
         } else {
-          this.mensagemPdf.set(res.mensagem || 'Não foi possível extrair dados automaticamente deste PDF. Você pode preencher o formulário manualmente.');
+          this.statusCampos.set({
+            nomeCompleto: 'nao_encontrado',
+            email: 'nao_encontrado',
+            telefone: 'nao_encontrado',
+            cargoInteresse: 'nao_encontrado',
+            resumoProfissional: 'nao_encontrado'
+          });
+          this.mensagemPdf.set(res.mensagem || 'Não foi possível extrair dados automaticamente deste PDF.');
           this.tipoMensagemPdf.set('aviso');
         }
       },
       error: (err) => {
-        console.error('[Upload PDF] Erro na requisição:', err);
         this.extraindoPdf.set(false);
         const msg = err.error?.mensagem || 'Falha na comunicação com o servidor ao ler o arquivo PDF. O cadastro manual continua disponível.';
         this.mensagemPdf.set(msg);
@@ -129,6 +212,13 @@ export class CadastroComponent {
   removerArquivo() {
     this.arquivoSelecionado.set(null);
     this.mensagemPdf.set(null);
+    this.statusCampos.set({
+      nomeCompleto: 'manual',
+      email: 'manual',
+      telefone: 'manual',
+      cargoInteresse: 'manual',
+      resumoProfissional: 'manual'
+    });
   }
 
   salvar() {
@@ -146,16 +236,12 @@ export class CadastroComponent {
       teveOrigemPdf: !!this.arquivoSelecionado()
     };
 
-    console.log('[Cadastro] Enviando payload:', dados);
-
     this.candidatoService.criar(dados).subscribe({
-      next: (resp) => {
-        console.log('[Cadastro] Candidato salvo com sucesso:', resp);
+      next: () => {
         this.salvando.set(false);
         this.router.navigate(['/'], { queryParams: { salvo: 'sucesso' } });
       },
       error: (err) => {
-        console.error('[Cadastro] Erro ao salvar candidato:', err);
         this.salvando.set(false);
         this.mensagemErro.set(err.error?.mensagem || 'Ocorreu um erro ao salvar o candidato. Verifique os dados e tente novamente.');
       }
