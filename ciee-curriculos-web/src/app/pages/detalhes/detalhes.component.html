@@ -1,95 +1,125 @@
-<div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-  <!-- Navegacao -->
+<div class="max-w-3xl mx-auto py-8 px-4 sm:px-6 lg:px-8 font-sans" appGsapFadeIn>
+  <!-- Barra de Ação Superior (Único ponto de retorno para a listagem) -->
   <div class="mb-6 flex items-center justify-between">
-    <a routerLink="/" class="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-800 transition">
-      &larr; Voltar para a listagem
-    </a>
-    <a routerLink="/cadastro" class="text-sm font-medium text-slate-600 hover:text-slate-900">
-      + Cadastrar outro candidato
+    <a routerLink="/" hlmBtn variant="ghost" size="sm" class="gap-1.5 text-slate-600 hover:text-[#003087]">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+      </svg>
+      Voltar para a listagem
     </a>
   </div>
 
   @if (carregando()) {
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-      <div class="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-      <p class="text-sm text-slate-500 font-medium">Carregando detalhes do candidato...</p>
-    </div>
+    <hlm-card class="p-12 text-center">
+      <div class="w-7 h-7 border-2 border-[#003087] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+      <p class="text-xs text-slate-500 font-medium">Carregando perfil do candidato...</p>
+    </hlm-card>
   } @else if (erro()) {
-    <div class="bg-white rounded-xl shadow-sm border border-rose-200 p-8 text-center">
-      <svg class="mx-auto h-10 w-10 text-rose-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-      </svg>
-      <h2 class="text-lg font-semibold text-slate-800">Candidato não encontrado</h2>
-      <p class="text-sm text-slate-500 mt-1">O registro solicitado não existe ou foi removido.</p>
-      <div class="mt-4">
-        <a routerLink="/" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">
-          Ir para a lista
-        </a>
+    <hlm-card class="p-8 text-center border-rose-200">
+      <div class="w-10 h-10 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-3">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
       </div>
-    </div>
+      <h2 class="text-base font-bold text-slate-800">Candidato não encontrado</h2>
+      <p class="text-xs text-slate-500 mt-1">O registro solicitado não existe ou foi removido.</p>
+    </hlm-card>
   } @else if (candidato(); as c) {
-    <!-- Cartao Principal de Detalhes -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <!-- Topo do Perfil -->
-      <div class="bg-gradient-to-r from-slate-900 to-indigo-950 p-6 sm:p-8 text-white">
+    <!-- Painel de Detalhes com Spartan Card (Simetria corporativa e proporcionalidade rigorosa) -->
+    <hlm-card>
+      <div hlmCardHeader class="pb-5">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mb-3"
-              [class]="c.teveOrigemPdf ? 'bg-indigo-500/20 text-indigo-200 border border-indigo-400/30' : 'bg-slate-700 text-slate-300'">
-              {{ c.teveOrigemPdf ? 'Cadastro com Leitura de PDF' : 'Cadastro Manual' }}
-            </span>
-            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              @if (c.teveOrigemPdf) {
+                <span hlmBadge variant="outline" class="gap-1.5 font-semibold text-slate-700">
+                  <img width="50" height="50" src="https://img.icons8.com/ios/50/pdf--v1.png" alt="pdf--v1" class="w-3.5 h-3.5 object-contain inline-block" />
+                  Extraído de PDF
+                </span>
+              } @else {
+                <span hlmBadge variant="outline" class="font-semibold text-slate-700">
+                  Cadastro Manual
+                </span>
+              }
+            </div>
+            <h1 hlmCardTitle class="text-xl sm:text-2xl font-bold text-[#001f5c]">
               {{ c.nomeCompleto }}
             </h1>
-            <p class="text-sm text-indigo-200 mt-1">
-              {{ c.cargoInteresse || 'Área/Cargo de interesse não especificado' }}
+            <p hlmCardDescription class="text-sm font-medium text-slate-600">
+              {{ c.cargoInteresse || 'Área de interesse não especificada' }}
             </p>
           </div>
-          <div class="text-xs text-slate-400 sm:text-right">
-            <div>Cadastrado em</div>
-            <div class="text-sm font-medium text-slate-200">
+
+          <div class="flex sm:flex-col sm:items-end justify-between border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100 text-xs">
+            <span class="text-slate-400 font-medium">Registrado em</span>
+            <div class="font-semibold text-slate-700 mt-0.5">
               {{ c.dataCadastro | date:'dd/MM/yyyy HH:mm' }}
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Corpo dos Dados -->
-      <div class="p-6 sm:p-8 space-y-6">
-        <!-- Dados de Contato -->
+      <div hlmCardContent class="space-y-6 pt-6">
+        <!-- Seção 1: Dados Cadastrais em Grid Simétrico 2 Colunas -->
         <div>
-          <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Informações de Contato</h2>
-          <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="p-4 rounded-lg bg-slate-50 border border-slate-100">
-              <dt class="text-xs text-slate-500 font-medium">E-mail</dt>
-              <dd class="text-sm font-semibold text-slate-800 mt-1 break-all">
-                <a [href]="'mailto:' + c.email" class="text-indigo-600 hover:underline">
-                  {{ c.email }}
-                </a>
-              </dd>
+          <h2 class="text-xs font-bold text-[#003087] uppercase tracking-wider mb-3">Dados Cadastrais</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- Nome Completo -->
+            <div class="p-4 rounded-md bg-slate-50 border border-slate-100 flex flex-col justify-between">
+              <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Nome Completo</span>
+              <span class="text-sm font-semibold text-slate-900 mt-1.5 block truncate" [title]="c.nomeCompleto">
+                {{ c.nomeCompleto }}
+              </span>
             </div>
-            <div class="p-4 rounded-lg bg-slate-50 border border-slate-100">
-              <dt class="text-xs text-slate-500 font-medium">Telefone / WhatsApp</dt>
-              <dd class="text-sm font-semibold text-slate-800 mt-1">
-                {{ c.telefone || 'Não informado' }}
-              </dd>
-            </div>
-          </dl>
-        </div>
 
-        <!-- Resumo Profissional -->
-        <div>
-          <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Resumo Profissional</h2>
-          <div class="p-4 sm:p-5 rounded-lg bg-slate-50 border border-slate-100 text-sm text-slate-700 leading-relaxed whitespace-pre-line">
-            {{ c.resumoProfissional || 'Nenhum resumo profissional cadastrado para este candidato.' }}
+            <!-- Cargo ou Área de Interesse -->
+            <div class="p-4 rounded-md bg-slate-50 border border-slate-100 flex flex-col justify-between">
+              <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Área de Interesse</span>
+              <span class="text-sm font-semibold text-slate-900 mt-1.5 block truncate" [title]="c.cargoInteresse || 'Não informado'">
+                {{ c.cargoInteresse || 'Não informado' }}
+              </span>
+            </div>
+
+            <!-- E-mail -->
+            <div class="p-4 rounded-md bg-slate-50 border border-slate-100 flex flex-col justify-between">
+              <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">E-mail</span>
+              <a [href]="'mailto:' + c.email" class="text-sm font-semibold text-[#003087] hover:underline mt-1.5 block break-all" [title]="c.email">
+                {{ c.email }}
+              </a>
+            </div>
+
+            <!-- Telefone -->
+            <div class="p-4 rounded-md bg-slate-50 border border-slate-100 flex flex-col justify-between">
+              <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Telefone</span>
+              <span class="text-sm font-semibold text-slate-900 mt-1.5 block">
+                {{ c.telefone || 'Não informado' }}
+              </span>
+            </div>
           </div>
         </div>
 
-        <!-- Identificador de Registro -->
-        <div class="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-          <span>ID do Registro: <code class="text-slate-600">{{ c.id }}</code></span>
+        <!-- Seção 2: Resumo Profissional -->
+        <div>
+          <h2 class="text-xs font-bold text-[#003087] uppercase tracking-wider mb-3">Resumo Profissional</h2>
+          <div class="p-4 rounded-md bg-slate-50 border border-slate-100 text-sm text-slate-700 leading-relaxed whitespace-pre-line min-h-[96px]">
+            {{ c.resumoProfissional || 'Nenhum resumo profissional registrado.' }}
+          </div>
+        </div>
+
+        <!-- Seção 3: Metadados do Registro (Grid simétrico espelhado para identificação) -->
+        <div class="pt-4 border-t border-slate-100">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div class="p-3.5 rounded-md bg-slate-50/70 border border-slate-100 flex items-center justify-between">
+              <span class="text-slate-500 font-medium">Identificador CIEE</span>
+              <code class="font-mono text-slate-700 font-semibold select-all">{{ c.id }}</code>
+            </div>
+            <div class="p-3.5 rounded-md bg-slate-50/70 border border-slate-100 flex items-center justify-between">
+              <span class="text-slate-500 font-medium">Origem do Cadastro</span>
+              <span class="font-semibold text-slate-700">{{ c.teveOrigemPdf ? 'Extração Automática (PDF)' : 'Digitação Manual' }}</span>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </hlm-card>
   }
 </div>
