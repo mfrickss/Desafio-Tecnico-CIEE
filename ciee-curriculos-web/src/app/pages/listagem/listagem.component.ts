@@ -1,14 +1,40 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+﻿import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { RouterLink, ActivatedRoute } from '@angular/router';
 import { CandidatoService } from '../../services/candidato.service';
 import { Candidato } from '../../models/candidato.model';
+import { HlmButtonDirective } from '../../shared/ui/button.directive';
+import { HlmBadgeDirective } from '../../shared/ui/badge.directive';
+import { HlmInputDirective } from '../../shared/ui/input.directive';
+import { 
+  HlmTableComponent, 
+  HlmTableHeaderDirective, 
+  HlmTableBodyDirective, 
+  HlmTableRowDirective, 
+  HlmTableHeadDirective, 
+  HlmTableCellDirective 
+} from '../../shared/ui/table.components';
+import { GsapFadeInDirective } from '../../shared/directives/gsap-animate.directive';
 
 @Component({
   selector: 'app-listagem',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [
+    CommonModule, 
+    FormsModule, 
+    RouterLink,
+    HlmButtonDirective,
+    HlmBadgeDirective,
+    HlmInputDirective,
+    HlmTableComponent,
+    HlmTableHeaderDirective,
+    HlmTableBodyDirective,
+    HlmTableRowDirective,
+    HlmTableHeadDirective,
+    HlmTableCellDirective,
+    GsapFadeInDirective
+  ],
   templateUrl: './listagem.component.html'
 })
 export class ListagemComponent implements OnInit {
@@ -17,43 +43,41 @@ export class ListagemComponent implements OnInit {
 
   candidatos = signal<Candidato[]>([]);
   carregando = signal<boolean>(true);
-  termoBusca = '';
   alertaSucesso = signal<boolean>(false);
+  termoBusca: string = '';
 
   ngOnInit() {
+    this.carregar();
     this.route.queryParams.subscribe(params => {
       if (params['salvo'] === 'sucesso') {
         this.alertaSucesso.set(true);
       }
     });
-
-    this.carregarCandidatos();
   }
 
-  carregarCandidatos() {
+  carregar() {
     this.carregando.set(true);
     this.candidatoService.listar(this.termoBusca).subscribe({
       next: (dados) => {
         this.candidatos.set(dados);
         this.carregando.set(false);
       },
-      error: (err) => {
-        console.error('Erro ao listar candidatos:', err);
+      error: () => {
         this.carregando.set(false);
       }
     });
   }
 
-  fecharAlerta() {
-    this.alertaSucesso.set(false);
-  }
-
   buscar() {
-    this.carregarCandidatos();
+    this.carregar();
   }
 
   limparBusca() {
     this.termoBusca = '';
-    this.carregarCandidatos();
+    this.carregar();
+  }
+
+  fecharAlerta() {
+    this.alertaSucesso.set(false);
   }
 }
