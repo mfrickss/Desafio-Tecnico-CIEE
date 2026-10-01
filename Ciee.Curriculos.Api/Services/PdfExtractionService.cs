@@ -1,5 +1,6 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.RegularExpressions;
+using Ciee.Curriculos.Api.Common;
 using Ciee.Curriculos.Api.DTOs;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
@@ -47,18 +48,6 @@ public class PdfExtractionService : IPdfExtractionService
         "projetos", "projetos relevantes", "principais projetos", "cursos", "certificacoes", "certificados", "licencas", "idiomas", "linguas",
         "contato", "contatos", "informacoes de contato", "informacoes adicionais", "atividades complementares"
     };
-
-    private static readonly Regex TitulosProfissionaisRegex = new(
-        @"\b(desenvolvedor(?:a)?(?:\s+full\s*stack|\s+backend|\s+frontend|\s+mobile|\s+web|\s+c#|\s+\.net|\s+java|\s+python|\s+software)?(?:\s+(?:j[úu]nior|jr|pleno|pl|s[êe]nior|sr))?|" +
-        @"programador(?:a)?(?:\s+full\s*stack|\s+backend|\s+frontend|\s+mobile|\s+web|\s+c#|\s+\.net|\s+java|\s+python)?(?:\s+(?:j[úu]nior|jr|pleno|pl|s[êe]nior|sr))?|" +
-        @"engenheiro(?:a)?\s+de\s+software(?:\s+(?:j[úu]nior|jr|pleno|pl|s[êe]nior|sr))?|" +
-        @"arquiteto(?:a)?\s+de\s+software|" +
-        @"analista\s+de\s+(?:sistemas|ti|suporte|dados|neg[óo]cios|qa|qualidade|requisitos)|" +
-        @"cientista\s+de\s+dados|engenheiro(?:a)?\s+de\s+dados|devops|tech\s+lead|l[íi]der\s+t[ée]cnico|" +
-        @"ui/ux\s+designer|ux\s+designer|designer|product\s+owner|scrum\s+master|" +
-        @"estagi[áa]rio(?:a)?(?:\s+de\s+[a-zA-Zá-úÁ-Ú]+)?|trainee(?:\s+de\s+[a-zA-Zá-úÁ-Ú]+)?)\b",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase,
-        RegexTimeout);
 
     public ExtracaoPdfResponseDto ExtrairDados(Stream pdfStream)
     {
@@ -136,38 +125,26 @@ public class PdfExtractionService : IPdfExtractionService
     {
         if (string.IsNullOrEmpty(texto)) return string.Empty;
 
-        // Remoção preventiva de caracteres nulos (\0) hostis a bancos relacionais
         texto = texto.Replace("\0", string.Empty);
-
         if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
 
-        // 1. Cedilha isolada (U+00B8) antes ou depois de c/C
         texto = texto.Replace("\u00B8c", "ç").Replace("\u00B8C", "Ç")
                      .Replace("c\u00B8", "ç").Replace("C\u00B8", "Ç");
 
-        // 2. Acento agudo avulso (U+00B4) pré ou pós vogal
         texto = Regex.Replace(texto, @"\u00B4([aeiouyAEIOUY])", m => SubstituirAgudo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
         texto = Regex.Replace(texto, @"([aeiouyAEIOUY])\u00B4", m => SubstituirAgudo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
 
-        // 3. Til avulso ou pequeno tilde (U+02DC, ~) pré ou pós vogal
         texto = Regex.Replace(texto, @"[\u02DC~]([aoAO])", m => SubstituirTil(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
         texto = Regex.Replace(texto, @"([aoAO])[\u02DC~]", m => SubstituirTil(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
 
-        // 4. Circunflexo avulso (U+02C6 ou ^) pré ou pós vogal
         texto = Regex.Replace(texto, @"[\u02C6\^]([aeoAEO])", m => SubstituirCircunflexo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
         texto = Regex.Replace(texto, @"([aeoAEO])[\u02C6\^]", m => SubstituirCircunflexo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
 
-        // 5. Crase avulsa (U+0060)
         texto = Regex.Replace(texto, @"\u0060([aA])", m => m.Groups[1].Value == "a" ? "à" : "À", RegexOptions.None, RegexTimeout);
         texto = Regex.Replace(texto, @"([aA])\u0060", m => m.Groups[1].Value == "a" ? "à" : "À", RegexOptions.None, RegexTimeout);
 
-        // 6. Normalização canônica Unicode FormC
         var normalizado = texto.Normalize(NormalizationForm.FormC);
-
-        // 7. Remoção de diacríticos combinantes órfãos que possam ter restado isolados
         normalizado = Regex.Replace(normalizado, @"[\u0300-\u036F]", string.Empty, RegexOptions.None, RegexTimeout);
-
-        // 8. Normalizar espaços múltiplos remanescentes
         normalizado = Regex.Replace(normalizado, @"[ \t]+", " ", RegexOptions.None, RegexTimeout);
 
         return normalizado.Trim();
@@ -192,20 +169,6 @@ public class PdfExtractionService : IPdfExtractionService
         "A" => "Â", "E" => "Ê", "O" => "Ô",
         _ => v
     };
-
-    private static string RemoverAcentos(string texto)
-    {
-        var normalized = texto.Normalize(NormalizationForm.FormD);
-        var sb = new StringBuilder();
-        foreach (var c in normalized)
-        {
-            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
-            {
-                sb.Append(c);
-            }
-        }
-        return sb.ToString().Normalize(NormalizationForm.FormC);
-    }
 
     private static string? ExtrairEmail(string texto)
     {
@@ -275,32 +238,38 @@ public class PdfExtractionService : IPdfExtractionService
         string? nomeCompleto,
         string? resumoProfissional)
     {
+        // 1. Seção explícita de Objetivo / Cargo Desejado
         var cargoExplicito = ExtrairCargoExplicito(textoCompleto);
         if (!string.IsNullOrWhiteSpace(cargoExplicito))
         {
             return cargoExplicito;
         }
 
+        // 2. Subtítulo logo abaixo do nome no cabeçalho
         var cargoSubtitulo = ExtrairCargoDeSubtitulo(linhas, nomeCompleto);
         if (!string.IsNullOrWhiteSpace(cargoSubtitulo))
         {
             return cargoSubtitulo;
         }
 
+        // 3. Inferência na primeira sentença do resumo profissional
         return InferirCargoDoResumo(resumoProfissional);
     }
 
     private static string? ExtrairCargoExplicito(string texto)
     {
-        var regexCargo = new Regex(@"(?:cargo|objetivo|interesse|posicao|vaga|funcao)[\s:]+([^\r\n]+)",
+        var regexCargo = new Regex(@"(?:cargo(?:\s+pretendido|\s+desejado)?|objetivo(?:\s+profissional)?|interesse|posi[çc][ãa]o(?:\s+desejada)?|vaga(?:\s+desejada|\s+pretendida)?|fun[çc][ãa]o(?:\s+pretendida)?|área\s+de\s+interesse)[\s:]+([^\r\n]+)",
             RegexOptions.IgnoreCase,
             RegexTimeout);
 
         var match = regexCargo.Match(texto);
         if (match.Success && match.Groups[1].Value.Length > 2)
         {
-            var cargo = match.Groups[1].Value.Trim();
-            return cargo.Length > 100 ? cargo.Substring(0, 100).Trim() : cargo;
+            var cargo = CargoParsingHelper.LimparEDelimitarCargo(match.Groups[1].Value);
+            if (!string.IsNullOrWhiteSpace(cargo))
+            {
+                return cargo;
+            }
         }
 
         return null;
@@ -327,15 +296,18 @@ public class PdfExtractionService : IPdfExtractionService
             var linha = linhas[i].Trim();
             if (string.IsNullOrWhiteSpace(linha)) continue;
             if (EmailRegex.IsMatch(linha) || TelefoneRegex.IsMatch(linha)) continue;
+            if (linha.Contains('@') || linha.StartsWith("http", StringComparison.OrdinalIgnoreCase) || linha.StartsWith("www.", StringComparison.OrdinalIgnoreCase)) continue;
             if (InicioResumoRegex.IsMatch(linha)) break;
 
-            var match = TitulosProfissionaisRegex.Match(linha);
-            if (match.Success)
+            if (linha.Length <= 100 && CargoParsingHelper.NucleoProfissionalRegex.IsMatch(linha))
             {
-                var cargo = NormalizarTituloProfissional(linha);
-                if (!string.IsNullOrWhiteSpace(cargo))
+                // Se a linha contiver URL embutida (BRK-04), remove antes de delimitar o cargo
+                linha = RemoverUrlsDaLinha(linha);
+
+                var cargo = CargoParsingHelper.LimparEDelimitarCargo(linha);
+                if (!string.IsNullOrWhiteSpace(cargo) && cargo.Length >= 3)
                 {
-                    return cargo.Length > 100 ? cargo.Substring(0, 100).Trim() : cargo;
+                    return cargo;
                 }
             }
         }
@@ -343,54 +315,37 @@ public class PdfExtractionService : IPdfExtractionService
         return null;
     }
 
+    private static string RemoverUrlsDaLinha(string linha)
+    {
+        return Regex.Replace(linha, @"https?:\/\/\S+|www\.\S+", "", RegexOptions.IgnoreCase, RegexTimeout).Trim();
+    }
+
     private static string? InferirCargoDoResumo(string? resumo)
     {
         if (string.IsNullOrWhiteSpace(resumo)) return null;
 
-        var primeiraSentenca = resumo.Split(new[] { '.', '\n', '\r', ';', '|' }, StringSplitOptions.RemoveEmptyEntries)
+        var primeiraSentenca = resumo.Split(new[] { '.', '\n', '\r', ';', '|', '!' }, StringSplitOptions.RemoveEmptyEntries)
             .FirstOrDefault()?
             .Trim();
 
         if (string.IsNullOrWhiteSpace(primeiraSentenca)) return null;
 
-        var match = TitulosProfissionaisRegex.Match(primeiraSentenca);
-        if (!match.Success) return null;
-
-        var trecho = primeiraSentenca.Substring(match.Index).Trim();
-        var cargo = NormalizarTituloProfissional(trecho);
-        if (string.IsNullOrWhiteSpace(cargo)) return null;
-
-        return cargo.Length > 100 ? cargo.Substring(0, 100).Trim() : cargo;
-    }
-
-    private static string NormalizarTituloProfissional(string texto)
-    {
-        var termosDeCorte = new[]
+        var matchNucleo = CargoParsingHelper.NucleoProfissionalRegex.Match(primeiraSentenca);
+        if (matchNucleo.Success)
         {
-            " focado em", " focado no", " focado na", " focada em", " focada no", " focada na",
-            " com foco", " com experiência", " com experiencia", " com sólida", " com solida",
-            " com forte", " com atuação", " com atuacao", " atuando em", " atuante em",
-            " especialista em", " apaixonado por", " dedicada a", " dedicado a", " buscando"
-        };
-
-        var menorCorte = texto.Length;
-        foreach (var termo in termosDeCorte)
-        {
-            var idx = texto.IndexOf(termo, StringComparison.OrdinalIgnoreCase);
-            if (idx > 0 && idx < menorCorte)
+            var trecho = primeiraSentenca.Substring(matchNucleo.Index).Trim();
+            var cargo = CargoParsingHelper.LimparEDelimitarCargo(trecho);
+            if (!string.IsNullOrWhiteSpace(cargo) && cargo.Length >= 3)
             {
-                menorCorte = idx;
+                return cargo;
             }
         }
 
-        var virgulaIdx = texto.IndexOf(',');
-        if (virgulaIdx > 0 && virgulaIdx < menorCorte) menorCorte = virgulaIdx;
-
-        var hifenIdx = texto.IndexOf(" - ");
-        if (hifenIdx > 0 && hifenIdx < menorCorte) menorCorte = hifenIdx;
-
-        return texto.Substring(0, menorCorte).Trim();
+        return null;
     }
+
+    // Mantido como delegação estática para compatibilidade com testes existentes
+    public static string LimparEDelimitarCargo(string texto) => CargoParsingHelper.LimparEDelimitarCargo(texto);
 
     private static string? ExtrairResumo(IReadOnlyList<string> linhas, string textoCompleto)
     {
@@ -455,7 +410,7 @@ public class PdfExtractionService : IPdfExtractionService
 
         if (SecoesFinais.Contains(linhaLimpa)) return true;
 
-        var linhaSemAcento = RemoverAcentos(linhaLimpa);
+        var linhaSemAcento = CargoParsingHelper.RemoverAcentos(linhaLimpa);
         if (SecoesFinaisSemAcento.Contains(linhaSemAcento)) return true;
 
         if (linhaLimpa.Length <= 50)
