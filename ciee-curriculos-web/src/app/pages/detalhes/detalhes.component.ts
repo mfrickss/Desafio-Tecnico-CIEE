@@ -1,13 +1,34 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+﻿import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CandidatoService } from '../../services/candidato.service';
 import { Candidato } from '../../models/candidato.model';
+import { HlmButtonDirective } from '../../shared/ui/button.directive';
+import { HlmBadgeDirective } from '../../shared/ui/badge.directive';
+import { 
+  HlmCardComponent, 
+  HlmCardHeaderDirective, 
+  HlmCardTitleDirective, 
+  HlmCardDescriptionDirective, 
+  HlmCardContentDirective 
+} from '../../shared/ui/card.components';
+import { GsapFadeInDirective } from '../../shared/directives/gsap-animate.directive';
 
 @Component({
   selector: 'app-detalhes',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [
+    CommonModule, 
+    RouterLink,
+    HlmButtonDirective,
+    HlmBadgeDirective,
+    HlmCardComponent,
+    HlmCardHeaderDirective,
+    HlmCardTitleDirective,
+    HlmCardDescriptionDirective,
+    HlmCardContentDirective,
+    GsapFadeInDirective
+  ],
   templateUrl: './detalhes.component.html'
 })
 export class DetalhesComponent implements OnInit {
