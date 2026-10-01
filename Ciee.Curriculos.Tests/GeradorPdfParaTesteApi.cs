@@ -1,16 +1,13 @@
-﻿using System.IO;
 using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.Core;
 using UglyToad.PdfPig.Fonts.Standard14Fonts;
 using UglyToad.PdfPig.Writer;
-using Xunit;
 
 namespace Ciee.Curriculos.Tests;
 
-public class GeradorPdfParaTesteApi
+public static class GeradorPdfParaTesteApi
 {
-    [Fact]
-    public void GerarPdfCurriculoNoDisco()
+    public static byte[] GerarPdfCurriculoExemplo()
     {
         var builder = new PdfDocumentBuilder();
         var page = builder.AddPage(PageSize.A4);
@@ -22,7 +19,6 @@ public class GeradorPdfParaTesteApi
         page.AddText("Cargo: Analista de Sistemas .NET", 12, new PdfPoint(50, 680), font);
         page.AddText("Resumo: Experiencia com desenvolvimento de APIs, SQL Server e Angular.", 12, new PdfPoint(50, 660), font);
 
-        var bytes = builder.Build();
-        File.WriteAllBytes(@"C:\Users\ricar\Desafio-Tecnico-CIEE\curriculo_teste.pdf", bytes);
+        return builder.Build();
     }
 }
