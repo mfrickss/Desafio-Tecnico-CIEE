@@ -26,7 +26,7 @@
       <input 
         type="text" 
         [(ngModel)]="termoBusca" 
-        (ngModelChange)="buscar()"
+        (ngModelChange)="aoDigitarBusca()"
         placeholder="Buscar candidato por nome, e-mail institucional ou área de interesse..."
         hlmInput
       />
@@ -96,7 +96,7 @@
             <td hlmTableCell>
               @if (c.teveOrigemPdf) {
                 <span hlmBadge variant="outline" class="gap-1.5 font-semibold">
-                  <img width="50" height="50" src="https://img.icons8.com/ios/50/pdf--v1.png" alt="pdf--v1" class="w-3.5 h-3.5 object-contain inline-block" />
+                  <img src="assets/pdfIcon.png" alt="PDF" class="w-3.5 h-3.5 object-contain inline-block" />
                   PDF
                 </span>
               } @else {
