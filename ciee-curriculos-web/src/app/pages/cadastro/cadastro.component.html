@@ -1,9 +1,10 @@
-﻿<div class="max-w-3xl mx-auto py-8 px-4 sm:px-6 lg:px-8 font-sans" appGsapFadeIn>
+<div class="max-w-3xl mx-auto py-8 px-4 sm:px-6 lg:px-8 font-sans" appGsapFadeIn>
   <!-- Cabeçalho da Página (Sem links duplicados de voltar) -->
   <div class="mb-6">
     <h1 class="text-2xl font-bold text-[#001f5c] tracking-tight">Novo Candidato</h1>
     <p class="text-sm text-slate-500 mt-0.5">
-      Preencha as informações do candidato ou envie um currículo em PDF para assistência automatizada.
+      Preencha as informações do candidato ou envie um currículo em PDF para assistência
+      automatizada.
     </p>
   </div>
 
@@ -15,40 +16,56 @@
         <p hlmCardDescription>Formatos aceitos: PDF de até 5 MB.</p>
       </div>
       @if (arquivoSelecionado()) {
-        <button type="button" (click)="removerArquivo()" hlmBtn variant="link" class="text-xs text-rose-600">
+        <button
+          type="button"
+          (click)="removerArquivo()"
+          hlmBtn
+          variant="link"
+          class="text-xs text-rose-600"
+        >
           Remover arquivo
         </button>
       }
     </div>
 
     <div hlmCardContent class="pt-4">
-      <div 
-        (dragover)="aoArrastarSobre()" 
-        (dragleave)="aoSairArrasto()" 
+      <div
+        (dragover)="aoArrastarSobre()"
+        (dragleave)="aoSairArrasto()"
         (drop)="aoSoltarArquivo()"
         (click)="fileInput.click()"
         [class.border-[#003087]]="estaArrastando()"
         [class.bg-[#f0f6ff]]="estaArrastando()"
-        class="border border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer hover:border-[#003087] hover:bg-slate-50 transition">
-        
-        <input 
-          #fileInput 
-          type="file" 
-          accept="application/pdf,.pdf" 
-          class="hidden" 
-          (click)="pararPropagacao()" 
-          (change)="aoSelecionarArquivo()" 
+        class="border border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer hover:border-[#003087] hover:bg-slate-50 transition"
+      >
+        <input
+          #fileInput
+          type="file"
+          accept="application/pdf,.pdf"
+          class="hidden"
+          (click)="pararPropagacao()"
+          (change)="aoSelecionarArquivo()"
         />
 
         @if (extraindoPdf()) {
           <div class="flex flex-col items-center justify-center py-2">
-            <div class="w-6 h-6 border-2 border-[#003087] border-t-transparent rounded-full animate-spin mb-2"></div>
+            <div
+              class="w-6 h-6 border-2 border-[#003087] border-t-transparent rounded-full animate-spin mb-2"
+            ></div>
             <p class="text-sm font-semibold text-slate-700">Extraindo dados do currículo...</p>
           </div>
         } @else if (arquivoSelecionado(); as arq) {
           <div class="flex flex-col items-center py-1">
             <span hlmBadge variant="success" class="mb-2 inline-flex items-center gap-1.5">
-              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <svg
+                class="w-3.5 h-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
               Arquivo anexado
@@ -69,7 +86,13 @@
       </div>
 
       @if (mensagemPdf(); as msg) {
-        <div [class]="tipoMensagemPdf() === 'sucesso' ? 'mt-3 p-3 bg-emerald-50/80 border border-emerald-300 text-emerald-900 rounded-md text-xs' : 'mt-3 p-3 bg-amber-50/80 border border-amber-300 text-amber-900 rounded-md text-xs'">
+        <div
+          [class]="
+            tipoMensagemPdf() === 'sucesso'
+              ? 'mt-3 p-3 bg-emerald-50/80 border border-emerald-300 text-emerald-900 rounded-md text-xs'
+              : 'mt-3 p-3 bg-amber-50/80 border border-amber-300 text-amber-900 rounded-md text-xs'
+          "
+        >
           {{ msg }}
         </div>
       }
@@ -80,7 +103,9 @@
   <hlm-card>
     <div hlmCardHeader>
       <h2 hlmCardTitle class="text-base">Dados Pessoais e Profissionais</h2>
-      <p hlmCardDescription>Campos sinalizados com asterisco (*) são de preenchimento obrigatório.</p>
+      <p hlmCardDescription>
+        Campos sinalizados com asterisco (*) são de preenchimento obrigatório.
+      </p>
     </div>
 
     <form [formGroup]="form" (ngSubmit)="salvar()">
@@ -91,8 +116,8 @@
             Nome Completo <span class="text-rose-500">*</span>
           </label>
           <div class="relative">
-            <input 
-              type="text" 
+            <input
+              type="text"
               formControlName="nomeCompleto"
               placeholder="Nome completo do candidato"
               hlmInput
@@ -101,14 +126,36 @@
               [class]="statusCampos().nomeCompleto !== 'manual' ? 'pr-10' : ''"
             />
             @if (statusCampos().nomeCompleto === 'extraido') {
-              <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-emerald-600" title="Extraído do currículo">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <div
+                class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-emerald-600"
+                title="Extraído do currículo"
+              >
+                <svg
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
               </div>
             } @else if (statusCampos().nomeCompleto === 'nao_encontrado') {
-              <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-amber-600" title="Não encontrado no currículo">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <div
+                class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-amber-600"
+                title="Não encontrado no currículo"
+              >
+                <svg
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <circle cx="12" cy="12" r="10"></circle>
                   <line x1="12" y1="8" x2="12" y2="12"></line>
                   <line x1="12" y1="16" x2="12.01" y2="16"></line>
@@ -117,7 +164,7 @@
             }
           </div>
           @if (campoInvalido('nomeCompleto')) {
-            <p class="text-xs text-rose-500 font-medium mt-1">Nome obrigatório (mínimo 3 caracteres).</p>
+            <p class="text-xs text-rose-500 font-medium mt-1">Nome obrigatório.</p>
           }
         </div>
 
@@ -129,8 +176,8 @@
               E-mail <span class="text-rose-500">*</span>
             </label>
             <div class="relative">
-              <input 
-                type="email" 
+              <input
+                type="email"
                 formControlName="email"
                 placeholder="exemplo@dominio.com"
                 hlmInput
@@ -139,14 +186,36 @@
                 [class]="statusCampos().email !== 'manual' ? 'pr-10' : ''"
               />
               @if (statusCampos().email === 'extraido') {
-                <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-emerald-600" title="Extraído do currículo">
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <div
+                  class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-emerald-600"
+                  title="Extraído do currículo"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <polyline points="20 6 9 17 4 12"></polyline>
                   </svg>
                 </div>
               } @else if (statusCampos().email === 'nao_encontrado') {
-                <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-amber-600" title="Não encontrado no currículo">
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <div
+                  class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-amber-600"
+                  title="Não encontrado no currículo"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10"></circle>
                     <line x1="12" y1="8" x2="12" y2="12"></line>
                     <line x1="12" y1="16" x2="12.01" y2="16"></line>
@@ -165,23 +234,46 @@
               Telefone
             </label>
             <div class="relative">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 formControlName="telefone"
                 placeholder="(11) 98765-4321"
+                (input)="onTelefoneInput($event)"
                 hlmInput
                 [status]="statusCampos().telefone"
                 [class]="statusCampos().telefone !== 'manual' ? 'pr-10' : ''"
               />
               @if (statusCampos().telefone === 'extraido') {
-                <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-emerald-600" title="Extraído do currículo">
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <div
+                  class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-emerald-600"
+                  title="Extraído do currículo"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <polyline points="20 6 9 17 4 12"></polyline>
                   </svg>
                 </div>
               } @else if (statusCampos().telefone === 'nao_encontrado') {
-                <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-amber-600" title="Não encontrado no currículo">
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <div
+                  class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-amber-600"
+                  title="Não encontrado no currículo"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
                     <circle cx="12" cy="12" r="10"></circle>
                     <line x1="12" y1="8" x2="12" y2="12"></line>
                     <line x1="12" y1="16" x2="12.01" y2="16"></line>
@@ -198,8 +290,8 @@
             Área ou Cargo de Interesse
           </label>
           <div class="relative">
-            <input 
-              type="text" 
+            <input
+              type="text"
               formControlName="cargoInteresse"
               placeholder="Ex: Desenvolvimento C#, Suporte de TI, Administração"
               hlmInput
@@ -207,14 +299,36 @@
               [class]="statusCampos().cargoInteresse !== 'manual' ? 'pr-10' : ''"
             />
             @if (statusCampos().cargoInteresse === 'extraido') {
-              <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-emerald-600" title="Extraído do currículo">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <div
+                class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-emerald-600"
+                title="Extraído do currículo"
+              >
+                <svg
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
               </div>
             } @else if (statusCampos().cargoInteresse === 'nao_encontrado') {
-              <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-amber-600" title="Não encontrado no currículo">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <div
+                class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-amber-600"
+                title="Não encontrado no currículo"
+              >
+                <svg
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <circle cx="12" cy="12" r="10"></circle>
                   <line x1="12" y1="8" x2="12" y2="12"></line>
                   <line x1="12" y1="16" x2="12.01" y2="16"></line>
@@ -230,26 +344,51 @@
             Resumo Profissional
           </label>
           <div class="relative">
-            <textarea 
+            <textarea
               formControlName="resumoProfissional"
               rows="6"
               placeholder="Principais experiências, cursos e qualificações..."
               class="flex w-full rounded-md border px-3.5 py-2.5 text-sm min-h-[160px] resize-y transition-colors outline-none focus:outline-none focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0"
-              [class]="(statusCampos().resumoProfissional === 'extraido' 
-                ? 'bg-emerald-50/70 border-emerald-300 text-emerald-950 placeholder:text-emerald-700/40 focus:border-emerald-400 focus-visible:border-emerald-400' 
-                : (statusCampos().resumoProfissional === 'nao_encontrado' 
-                  ? 'bg-amber-50/70 border-amber-300 text-amber-950 placeholder:text-amber-700/40 focus:border-amber-400 focus-visible:border-amber-400' 
-                  : 'bg-white border-slate-300 text-slate-900 focus:border-slate-400 focus-visible:border-slate-400')) + (statusCampos().resumoProfissional !== 'manual' ? ' pr-10' : '')"
+              [class]="
+                (statusCampos().resumoProfissional === 'extraido'
+                  ? 'bg-emerald-50/70 border-emerald-300 text-emerald-950 placeholder:text-emerald-700/40 focus:border-emerald-400 focus-visible:border-emerald-400'
+                  : statusCampos().resumoProfissional === 'nao_encontrado'
+                    ? 'bg-amber-50/70 border-amber-300 text-amber-950 placeholder:text-amber-700/40 focus:border-amber-400 focus-visible:border-amber-400'
+                    : 'bg-white border-slate-300 text-slate-900 focus:border-slate-400 focus-visible:border-slate-400') +
+                (statusCampos().resumoProfissional !== 'manual' ? ' pr-10' : '')
+              "
             ></textarea>
             @if (statusCampos().resumoProfissional === 'extraido') {
-              <div class="absolute right-3.5 top-3.5 pointer-events-none flex items-center justify-center text-emerald-600" title="Extraído do currículo">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <div
+                class="absolute right-3.5 top-3.5 pointer-events-none flex items-center justify-center text-emerald-600"
+                title="Extraído do currículo"
+              >
+                <svg
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
               </div>
             } @else if (statusCampos().resumoProfissional === 'nao_encontrado') {
-              <div class="absolute right-3.5 top-3.5 pointer-events-none flex items-center justify-center text-amber-600" title="Não encontrado no currículo">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <div
+                class="absolute right-3.5 top-3.5 pointer-events-none flex items-center justify-center text-amber-600"
+                title="Não encontrado no currículo"
+              >
+                <svg
+                  class="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <circle cx="12" cy="12" r="10"></circle>
                   <line x1="12" y1="8" x2="12" y2="12"></line>
                   <line x1="12" y1="16" x2="12.01" y2="16"></line>
@@ -260,7 +399,9 @@
         </div>
 
         @if (mensagemErro(); as erro) {
-          <div class="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-md text-xs font-medium">
+          <div
+            class="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-md text-xs font-medium"
+          >
             {{ erro }}
           </div>
         }
@@ -268,13 +409,14 @@
 
       <!-- Rodapé: Simetria rigorosa, alinhado perfeitamente e sem cruzar linha -->
       <div hlmCardFooter>
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           [disabled]="salvando()"
-          hlmBtn 
+          hlmBtn
           variant="secondary"
           size="default"
-          class="min-w-[150px]">
+          class="min-w-[150px]"
+        >
           @if (salvando()) {
             <span>Salvando...</span>
           } @else {
