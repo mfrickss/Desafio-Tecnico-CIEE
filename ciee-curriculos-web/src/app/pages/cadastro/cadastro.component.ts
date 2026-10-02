@@ -1,4 +1,4 @@
-﻿import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -81,6 +81,30 @@ export class CadastroComponent {
     return !!(control && control.invalid && (control.dirty || control.touched));
   }
 
+  aplicarMascaraTelefone(valor: string): string {
+    if (!valor) return '';
+    const digitos = valor.replace(/\D/g, '').substring(0, 11);
+    if (digitos.length <= 2) {
+      return digitos.length > 0 ? `(${digitos}` : '';
+    }
+    if (digitos.length <= 6) {
+      return `(${digitos.substring(0, 2)}) ${digitos.substring(2)}`;
+    }
+    if (digitos.length <= 10) {
+      return `(${digitos.substring(0, 2)}) ${digitos.substring(2, 6)}-${digitos.substring(6)}`;
+    }
+    return `(${digitos.substring(0, 2)}) ${digitos.substring(2, 7)}-${digitos.substring(7, 11)}`;
+  }
+
+  onTelefoneInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input) {
+      const valorFormatado = this.aplicarMascaraTelefone(input.value);
+      this.form.get('telefone')?.setValue(valorFormatado, { emitEvent: false });
+      input.value = valorFormatado;
+    }
+  }
+
   pararPropagacao(event?: Event) {
     event?.stopPropagation();
   }
@@ -144,7 +168,10 @@ export class CadastroComponent {
         if (res.sucesso) {
           if (res.nomeCompleto) this.form.patchValue({ nomeCompleto: res.nomeCompleto });
           if (res.email) this.form.patchValue({ email: res.email });
-          if (res.telefone) this.form.patchValue({ telefone: res.telefone });
+          if (res.telefone) {
+            const telFormatado = this.aplicarMascaraTelefone(res.telefone);
+            this.form.patchValue({ telefone: telFormatado });
+          }
           if (res.cargoInteresse) this.form.patchValue({ cargoInteresse: res.cargoInteresse });
           if (res.resumoProfissional) this.form.patchValue({ resumoProfissional: res.resumoProfissional });
 
@@ -160,7 +187,6 @@ export class CadastroComponent {
           this.mensagemPdf.set('Dados extraídos com sucesso. Complete os dados faltantes destacados abaixo.');
           this.tipoMensagemPdf.set('sucesso');
 
-          // Rolagem verdadeiramente suave até o 1º campo não encontrado
           setTimeout(() => {
             const camposOrdem: (keyof MapaCamposExtraidos)[] = [
               'nomeCompleto', 
@@ -174,14 +200,12 @@ export class CadastroComponent {
               const seletor = '[formControlName="' + pendente + '"]';
               const elemento = document.querySelector(seletor) as HTMLElement;
               if (elemento) {
-                // Cálculo de posição com desconto da barra sticky (80px de margem)
                 const posicaoY = elemento.getBoundingClientRect().top + window.scrollY - 100;
                 window.scrollTo({
                   top: Math.max(0, posicaoY),
                   behavior: 'smooth'
                 });
 
-                // Foco após a conclusão da rolagem para não interromper a animação suave
                 setTimeout(() => {
                   elemento.focus({ preventScroll: true });
                 }, 450);
@@ -231,8 +255,11 @@ export class CadastroComponent {
     this.salvando.set(true);
     this.mensagemErro.set(null);
 
+    const telefoneFormatado = this.aplicarMascaraTelefone(this.form.value.telefone || '');
+
     const dados = {
       ...this.form.value,
+      telefone: telefoneFormatado || null,
       teveOrigemPdf: !!this.arquivoSelecionado()
     };
 
