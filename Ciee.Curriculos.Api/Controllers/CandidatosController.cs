@@ -1,4 +1,5 @@
 using System.Text;
+using Ciee.Curriculos.Api.Common;
 using Ciee.Curriculos.Api.Data;
 using Ciee.Curriculos.Api.DTOs;
 using Ciee.Curriculos.Api.Models;
@@ -41,7 +42,6 @@ public class CandidatosController : ControllerBase
         if (!string.IsNullOrWhiteSpace(busca))
         {
             var termo = busca.Trim();
-            // Sem ToLower() nas colunas para preservar o uso de indices no SQL Server (CI collation)
             query = query.Where(c =>
                 c.NomeCompleto.Contains(termo) ||
                 c.Email.Contains(termo) ||
@@ -116,7 +116,6 @@ public class CandidatosController : ControllerBase
                 Instance = HttpContext.Request.Path
             };
 
-            // Compatibilidade retroativa para clientes que leem mensagem e lista rros
             problem.Extensions["mensagem"] = "Dados invalidos para cadastro do candidato.";
             problem.Extensions["erros"] = validationResult.Errors.Select(e => new { campo = e.PropertyName, erro = e.ErrorMessage }).ToList();
 
@@ -127,7 +126,7 @@ public class CandidatosController : ControllerBase
         {
             NomeCompleto = dto.NomeCompleto.Trim(),
             Email = dto.Email.Trim().ToLower(),
-            Telefone = dto.Telefone?.Trim(),
+            Telefone = TelefoneHelper.FormatarTelefoneBrasil(dto.Telefone),
             CargoInteresse = dto.CargoInteresse?.Trim(),
             ResumoProfissional = dto.ResumoProfissional?.Trim(),
             TeveOrigemPdf = dto.TeveOrigemPdf,
@@ -180,7 +179,6 @@ public class CandidatosController : ControllerBase
                 "A extensão ou o MIME type informado não é suportado.");
         }
 
-        // Validação de segurança de cabeçalho binário (Magic Bytes %PDF-)
         try
         {
             using var stream = arquivo.OpenReadStream();

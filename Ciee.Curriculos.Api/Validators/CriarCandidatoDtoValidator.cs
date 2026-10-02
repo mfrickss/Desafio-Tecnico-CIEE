@@ -1,10 +1,14 @@
-﻿using Ciee.Curriculos.Api.DTOs;
+using System.Text.RegularExpressions;
+using Ciee.Curriculos.Api.Common;
+using Ciee.Curriculos.Api.DTOs;
 using FluentValidation;
 
 namespace Ciee.Curriculos.Api.Validators;
 
 public class CriarCandidatoDtoValidator : AbstractValidator<CriarCandidatoDto>
 {
+    private static readonly Regex ApenasDigitosRegex = new(@"\D", RegexOptions.Compiled);
+
     public CriarCandidatoDtoValidator()
     {
         RuleFor(x => x.NomeCompleto)
@@ -19,6 +23,8 @@ public class CriarCandidatoDtoValidator : AbstractValidator<CriarCandidatoDto>
 
         RuleFor(x => x.Telefone)
             .MaximumLength(30).WithMessage("O telefone nao pode ultrapassar 30 caracteres.")
+            .Must(ValidarFormatoOuDigitosTelefone)
+            .WithMessage("O telefone informado deve conter um número válido com DDD (10 ou 11 dígitos).")
             .When(x => !string.IsNullOrWhiteSpace(x.Telefone));
 
         RuleFor(x => x.CargoInteresse)
@@ -28,5 +34,18 @@ public class CriarCandidatoDtoValidator : AbstractValidator<CriarCandidatoDto>
         RuleFor(x => x.ResumoProfissional)
             .MaximumLength(2000).WithMessage("O resumo profissional nao pode ultrapassar 2000 caracteres.")
             .When(x => !string.IsNullOrWhiteSpace(x.ResumoProfissional));
+    }
+
+    private static bool ValidarFormatoOuDigitosTelefone(string? telefone)
+    {
+        if (string.IsNullOrWhiteSpace(telefone)) return true;
+
+        var digitos = ApenasDigitosRegex.Replace(telefone, "");
+        if (digitos.StartsWith("55") && (digitos.Length == 12 || digitos.Length == 13))
+        {
+            digitos = digitos.Substring(2);
+        }
+
+        return digitos.Length == 10 || digitos.Length == 11;
     }
 }
