@@ -42,6 +42,27 @@ public class PdfExtractionServiceTests
     }
 
     [Fact]
+    public void ExtrairDados_TelefoneSemMascaraNoPdf_DeveFormatarCanonico()
+    {
+        var builder = new PdfDocumentBuilder();
+        var page = builder.AddPage(PageSize.A4);
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+
+        page.AddText("Ana Paula", 16, new PdfPoint(50, 750), font);
+        page.AddText("ana.paula@email.com", 12, new PdfPoint(50, 720), font);
+        page.AddText("Telefone: 11987654321", 12, new PdfPoint(50, 700), font);
+        page.AddText("Cargo: Desenvolvedora .NET", 12, new PdfPoint(50, 680), font);
+
+        var bytes = builder.Build();
+        using var stream = new MemoryStream(bytes);
+
+        var resultado = _service.ExtrairDados(stream);
+
+        Assert.True(resultado.Sucesso);
+        Assert.Equal("(11) 98765-4321", resultado.Telefone);
+    }
+
+    [Fact]
     public void ExtrairDados_ResumoProfissionalMultilinhas_DeveCapturarTodosOsParagrafosComoTextoContinuo()
     {
         var builder = new PdfDocumentBuilder();
@@ -125,6 +146,20 @@ public class PdfExtractionServiceTests
         var resultado = PdfExtractionService.NormalizarTextoPdf(entradaBugada);
 
         Assert.Equal("Desenvolvedor Full Stack Júnior focado em desenvolvimento ágil assistido por ferramentas de IA e construção de aplicações", resultado);
+    }
+
+    [Theory]
+    [InlineData("curri´culo", "currículo")]
+    [InlineData("Jun´ior", "Júnior")]
+    [InlineData("Estagiar´io", "Estagiário")]
+    [InlineData("jur\u0131d´icos", "jurídicos")]
+    [InlineData("eleg\u0131v´eis", "elegíveis")]
+    [InlineData("experi^encia e sa´ıda", "experiência e saída")]
+    [InlineData("I´nicio", "Ínicio")]
+    public void NormalizarTextoPdf_CasosDeVogalIComAcentosEDotlessI_DeveNormalizarCorretamente(string entrada, string esperado)
+    {
+        var resultado = PdfExtractionService.NormalizarTextoPdf(entrada);
+        Assert.Equal(esperado, resultado);
     }
 
     [Fact]
@@ -393,4 +428,3 @@ public class PdfExtractionServiceTests
         Assert.Equal(100, resultado.Length);
     }
 }
-

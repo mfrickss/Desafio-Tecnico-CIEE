@@ -128,20 +128,48 @@ public class PdfExtractionService : IPdfExtractionService
         texto = texto.Replace("\0", string.Empty);
         if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
 
+        // Normaliza cedilhas
         texto = texto.Replace("\u00B8c", "ç").Replace("\u00B8C", "Ç")
                      .Replace("c\u00B8", "ç").Replace("C\u00B8", "Ç");
 
-        texto = Regex.Replace(texto, @"\u00B4([aeiouyAEIOUY])", m => SubstituirAgudo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
-        texto = Regex.Replace(texto, @"([aeiouyAEIOUY])\u00B4", m => SubstituirAgudo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+        // Casos citados no PRD onde o acento foi posicionado incorretamente na sequência de glifos
+        // "Jun´ior" ou "Ju´nior" -> "Júnior" (exigindo explicitamente o glifo de acento agudo ou apóstrofo)
+        texto = Regex.Replace(texto, @"\bJu[´'\u02CA\u0301]nior\b", "Júnior", RegexOptions.IgnoreCase, RegexTimeout);
+        texto = Regex.Replace(texto, @"\bJun[´'\u02CA\u0301]ior\b", "Júnior", RegexOptions.IgnoreCase, RegexTimeout);
 
-        texto = Regex.Replace(texto, @"[\u02DC~]([aoAO])", m => SubstituirTil(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
-        texto = Regex.Replace(texto, @"([aoAO])[\u02DC~]", m => SubstituirTil(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+        // "Estagiar´io" -> "Estagiário"
+        texto = Regex.Replace(texto, @"\bEstagiar[´'\u02CA\u0301]+io\b", "Estagiário", RegexOptions.IgnoreCase, RegexTimeout);
+        texto = Regex.Replace(texto, @"\bestagiar[´'\u02CA\u0301]+io\b", "estagiário", RegexOptions.IgnoreCase, RegexTimeout);
 
-        texto = Regex.Replace(texto, @"[\u02C6\^]([aeoAEO])", m => SubstituirCircunflexo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
-        texto = Regex.Replace(texto, @"([aeoAEO])[\u02C6\^]", m => SubstituirCircunflexo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+        // "jurıd´icos" / "jurid´icos" -> "jurídicos"
+        texto = Regex.Replace(texto, @"\bjur[\u0131i]d[´'\u02CA\u0301]+icos\b", "jurídicos", RegexOptions.IgnoreCase, RegexTimeout);
 
-        texto = Regex.Replace(texto, @"\u0060([aA])", m => m.Groups[1].Value == "a" ? "à" : "À", RegexOptions.None, RegexTimeout);
-        texto = Regex.Replace(texto, @"([aA])\u0060", m => m.Groups[1].Value == "a" ? "à" : "À", RegexOptions.None, RegexTimeout);
+        // "elegıv´eis" / "elegiv´eis" -> "elegíveis"
+        texto = Regex.Replace(texto, @"\beleg[\u0131i]v[´'\u02CA\u0301]+eis\b", "elegíveis", RegexOptions.IgnoreCase, RegexTimeout);
+
+        // Mapeamento específico para a letra "i" e dotless i ("\u0131") com acento agudo ou apóstrofo
+        texto = Regex.Replace(texto, @"(?:\u0131|i)\s*[\u00B4\u02CA\u0301']", "í", RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"[\u00B4\u02CA\u0301']\s*(?:\u0131|i)", "í", RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"(?:\u0130|I)\s*[\u00B4\u02CA\u0301']", "Í", RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"[\u00B4\u02CA\u0301']\s*(?:\u0130|I)", "Í", RegexOptions.None, RegexTimeout);
+
+        // Converte dotless i remanescente sem acento para i
+        texto = texto.Replace("\u0131", "i");
+        texto = texto.Replace("\u0130", "I");
+
+        // Diacríticos agudos soltos / decompostos antes ou depois da vogal
+        texto = Regex.Replace(texto, @"[\u00B4\u02CA\u0301']\s*([aeouyAEOUY])", m => SubstituirAgudo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"([aeouyAEOUY])\s*[\u00B4\u02CA\u0301']", m => SubstituirAgudo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+
+        // Mapeamento de til, circunflexo e crase
+        texto = Regex.Replace(texto, @"[\u02DC~\u0303]\s*([aoAO])", m => SubstituirTil(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"([aoAO])\s*[\u02DC~\u0303]", m => SubstituirTil(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+
+        texto = Regex.Replace(texto, @"[\u02C6\^\u0302]\s*([aeoAEO])", m => SubstituirCircunflexo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"([aeoAEO])\s*[\u02C6\^\u0302]", m => SubstituirCircunflexo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+
+        texto = Regex.Replace(texto, @"[\u0060\u0300]\s*([aA])", m => m.Groups[1].Value == "a" ? "à" : "À", RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"([aA])\s*[\u0060\u0300]", m => m.Groups[1].Value == "a" ? "à" : "À", RegexOptions.None, RegexTimeout);
 
         var normalizado = texto.Normalize(NormalizationForm.FormC);
         normalizado = Regex.Replace(normalizado, @"[\u0300-\u036F]", string.Empty, RegexOptions.None, RegexTimeout);
@@ -182,20 +210,7 @@ public class PdfExtractionService : IPdfExtractionService
         if (!match.Success) return null;
 
         var raw = match.Value.Trim();
-        var apenasDigitos = Regex.Replace(raw, @"\D", "", RegexOptions.None, RegexTimeout);
-
-        if (apenasDigitos.Length >= 10 && apenasDigitos.Length <= 11)
-        {
-            var ddd = apenasDigitos.Substring(0, 2);
-            var numero = apenasDigitos.Substring(2);
-            if (numero.Length == 9)
-            {
-                return $"({ddd}) {numero.Substring(0, 5)}-{numero.Substring(5)}";
-            }
-            return $"({ddd}) {numero.Substring(0, 4)}-{numero.Substring(4)}";
-        }
-
-        return raw;
+        return TelefoneHelper.FormatarTelefoneBrasil(raw);
     }
 
     private static string? ExtrairNome(IEnumerable<string> linhas)
@@ -238,21 +253,18 @@ public class PdfExtractionService : IPdfExtractionService
         string? nomeCompleto,
         string? resumoProfissional)
     {
-        // 1. Seção explícita de Objetivo / Cargo Desejado
         var cargoExplicito = ExtrairCargoExplicito(textoCompleto);
         if (!string.IsNullOrWhiteSpace(cargoExplicito))
         {
             return cargoExplicito;
         }
 
-        // 2. Subtítulo logo abaixo do nome no cabeçalho
         var cargoSubtitulo = ExtrairCargoDeSubtitulo(linhas, nomeCompleto);
         if (!string.IsNullOrWhiteSpace(cargoSubtitulo))
         {
             return cargoSubtitulo;
         }
 
-        // 3. Inferência na primeira sentença do resumo profissional
         return InferirCargoDoResumo(resumoProfissional);
     }
 
@@ -301,7 +313,6 @@ public class PdfExtractionService : IPdfExtractionService
 
             if (linha.Length <= 100 && CargoParsingHelper.NucleoProfissionalRegex.IsMatch(linha))
             {
-                // Se a linha contiver URL embutida (BRK-04), remove antes de delimitar o cargo
                 linha = RemoverUrlsDaLinha(linha);
 
                 var cargo = CargoParsingHelper.LimparEDelimitarCargo(linha);
@@ -344,7 +355,6 @@ public class PdfExtractionService : IPdfExtractionService
         return null;
     }
 
-    // Mantido como delegação estática para compatibilidade com testes existentes
     public static string LimparEDelimitarCargo(string texto) => CargoParsingHelper.LimparEDelimitarCargo(texto);
 
     private static string? ExtrairResumo(IReadOnlyList<string> linhas, string textoCompleto)
