@@ -19,9 +19,15 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Remoção total de bordas/anéis externos de foco */
-input, textarea, select, button, a {
+/* Cliques com mouse permanecem 100% limpos e sem anéis */
+:focus:not(:focus-visible) {
   outline: none !important;
+}
+
+/* Acessibilidade de navegação por teclado (Tab): anel finíssimo e harmônico em tom neutro */
+:focus-visible {
+  outline: 1px solid #94a3b8 !important;
+  outline-offset: 1px !important;
 }
 
 /* Scroll suave para direcionamento pós-extração */
