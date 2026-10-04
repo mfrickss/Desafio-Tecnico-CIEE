@@ -1,6 +1,52 @@
-@Ciee.Curriculos.Api_HostAddress = http://localhost:5004
+@HostAddress = http://localhost:5004
 
-GET {{Ciee.Curriculos.Api_HostAddress}}/weatherforecast/
+### 1. Listar todos os candidatos cadastrados
+GET {{HostAddress}}/api/candidatos
 Accept: application/json
 
-###
+### 2. Buscar candidatos por termo (Nome, E-mail ou Cargo)
+GET {{HostAddress}}/api/candidatos?busca=Desenvolvedor
+Accept: application/json
+
+### 3. Obter candidato por ID (Guid)
+# Substitua pelo ID real obtido na listagem
+@CandidatoId = 00000000-0000-0000-0000-000000000000
+GET {{HostAddress}}/api/candidatos/{{CandidatoId}}
+Accept: application/json
+
+### 4. Cadastrar novo candidato manualmente
+POST {{HostAddress}}/api/candidatos
+Content-Type: application/json
+Accept: application/json
+
+{
+  "nomeCompleto": "Carlos Eduardo da Silva",
+  "email": "carlos.silva@exemplo.com",
+  "telefone": "(11) 98765-4321",
+  "cargoInteresse": "Desenvolvedor .NET Pleno",
+  "resumoProfissional": "Profissional com 4 anos de experiência em C#, ASP.NET Core e bancos relacionais.",
+  "teveOrigemPdf": false
+}
+
+### 5. Cadastrar candidato com erro de validação (Testar RFC 7807)
+POST {{HostAddress}}/api/candidatos
+Content-Type: application/json
+Accept: application/json
+
+{
+  "nomeCompleto": "",
+  "email": "email-invalido",
+  "telefone": "123"
+}
+
+### 6. Extrair dados de currículo via PDF (Multipart Form)
+# No VS Code / Visual Studio REST Client, o arquivo pode ser referenciado relativamente:
+POST {{HostAddress}}/api/candidatos/extrair-pdf
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="arquivo"; filename="curriculo.pdf"
+Content-Type: application/pdf
+
+< ../context/Curriculo_Next_PT.pdf
+--WebAppBoundary--
