@@ -15,7 +15,6 @@ import {
   HlmCardContentDirective, 
   HlmCardFooterDirective 
 } from '../../shared/ui/card.components';
-import { GsapFadeInDirective } from '../../shared/directives/gsap-animate.directive';
 
 export type StatusExtracaoCampo = 'extraido' | 'nao_encontrado' | 'manual';
 
@@ -42,7 +41,6 @@ export interface MapaCamposExtraidos {
     HlmCardDescriptionDirective,
     HlmCardContentDirective,
     HlmCardFooterDirective,
-    GsapFadeInDirective
   ],
   templateUrl: './cadastro.component.html'
 })

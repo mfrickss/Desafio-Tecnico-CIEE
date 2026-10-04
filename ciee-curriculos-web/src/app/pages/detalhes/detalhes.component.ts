@@ -12,7 +12,6 @@ import {
   HlmCardDescriptionDirective, 
   HlmCardContentDirective 
 } from '../../shared/ui/card.components';
-import { GsapFadeInDirective } from '../../shared/directives/gsap-animate.directive';
 
 @Component({
   selector: 'app-detalhes',
@@ -27,7 +26,6 @@ import { GsapFadeInDirective } from '../../shared/directives/gsap-animate.direct
     HlmCardTitleDirective,
     HlmCardDescriptionDirective,
     HlmCardContentDirective,
-    GsapFadeInDirective
   ],
   templateUrl: './detalhes.component.html'
 })

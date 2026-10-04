@@ -17,7 +17,6 @@ import {
   HlmTableHeadDirective, 
   HlmTableCellDirective 
 } from '../../shared/ui/table.components';
-import { GsapFadeInDirective } from '../../shared/directives/gsap-animate.directive';
 
 @Component({
   selector: 'app-listagem',
@@ -35,7 +34,6 @@ import { GsapFadeInDirective } from '../../shared/directives/gsap-animate.direct
     HlmTableRowDirective,
     HlmTableHeadDirective,
     HlmTableCellDirective,
-    GsapFadeInDirective
   ],
   templateUrl: './listagem.component.html'
 })
