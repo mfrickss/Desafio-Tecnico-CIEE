@@ -4,14 +4,18 @@ import { cn } from './utils';
 export type ButtonVariant = 'default' | 'secondary' | 'outline' | 'ghost' | 'destructive' | 'link';
 export type ButtonSize = 'default' | 'sm' | 'lg' | 'icon';
 
+/**
+ * Diretiva institucional CIEE para estilização de botões acessíveis e padronizados.
+ * Suporta o seletor institucional [cieeBtn] e mantém retrocompatibilidade com [hlmBtn].
+ */
 @Directive({
-  selector: '[hlmBtn]',
+  selector: '[cieeBtn]',
   standalone: true,
   host: {
     '[class]': 'classes()'
   }
 })
-export class HlmButtonDirective {
+export class CieeButtonDirective {
   private readonly _variant = signal<ButtonVariant>('default');
   private readonly _size = signal<ButtonSize>('default');
   private readonly _class = signal<string>('');
@@ -32,16 +36,15 @@ export class HlmButtonDirective {
   }
 
   protected readonly classes = computed(() => {
-    // Totalmente livre de anéis e contornos externos (ring-0 e outline-none)
-    const base = 'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-semibold transition-colors outline-none focus:outline-none focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0 disabled:pointer-events-none disabled:opacity-50 select-none cursor-pointer';
+    const base = 'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ciee-navy focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none cursor-pointer';
 
     const variants: Record<ButtonVariant, string> = {
-      default: 'bg-[#003087] text-white hover:bg-[#024089] active:bg-[#001f5c]',
-      secondary: 'bg-[#ed6b06] text-white hover:bg-[#d65f04] active:bg-[#c64f01]',
+      default: 'bg-ciee-navy text-white hover:bg-ciee-blue active:bg-ciee-dark',
+      secondary: 'bg-ciee-orange text-white hover:opacity-95 active:bg-ciee-orangeFocus',
       outline: 'border border-slate-300 bg-white hover:bg-slate-100 hover:text-slate-900 text-slate-700',
       ghost: 'hover:bg-slate-100 hover:text-slate-900 text-slate-600',
-      destructive: 'bg-rose-600 text-white hover:bg-rose-700',
-      link: 'text-[#003087] underline-offset-4 hover:underline p-0 h-auto'
+      destructive: 'bg-rose-600 text-white hover:bg-rose-700 active:bg-rose-800',
+      link: 'text-ciee-navy underline-offset-4 hover:underline p-0 h-auto'
     };
 
     const sizes: Record<ButtonSize, string> = {
@@ -54,3 +57,6 @@ export class HlmButtonDirective {
     return cn(base, variants[this._variant()], sizes[this._size()], this._class());
   });
 }
+
+// Alias para preservar compatibilidade de importação existente
+export { CieeButtonDirective as HlmButtonDirective };
