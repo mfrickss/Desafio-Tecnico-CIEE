@@ -1,9 +1,17 @@
+using System;
+using System.Text.Json.Serialization;
+using Ciee.Curriculos.Api.Common.Converters;
 using Ciee.Curriculos.Api.Data;
 using Ciee.Curriculos.Api.DTOs;
 using Ciee.Curriculos.Api.Services;
 using Ciee.Curriculos.Api.Validators;
 using FluentValidation;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,7 +22,7 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-// Injecao de Dependencia dos Servicos e Validadores
+// Injecao de Dependencia dos Servicos e Validadores (DIP estrito via interfaces)
 builder.Services.AddScoped<IPdfExtractionService, PdfExtractionService>();
 builder.Services.AddScoped<IValidator<CriarCandidatoDto>, CriarCandidatoDtoValidator>();
 
@@ -28,16 +36,22 @@ builder.Services.AddProblemDetails(options =>
     };
 });
 
-// Controllers e endpoints
-builder.Services.AddControllers();
+// Controllers e endpoints com serializacao canonica ISO 8601 UTC
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        options.JsonSerializerOptions.Converters.Add(new Iso8601UtcDateTimeJsonConverter());
+    });
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
     {
-        Title = "CIEE - API de Cadastro e Triagem de Curriculos",
+        Title = "CIEE - API de Cadastro e Triagem de Currículos",
         Version = "v1",
-        Description = "API RESTful para cadastro manual e triagem automatica de curriculos em PDF."
+        Description = "API RESTful para cadastro manual e triagem automática de currículos em PDF."
     });
 });
 
@@ -84,7 +98,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "CIEE Curriculos API v1");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "CIEE Currículos API v1");
         c.RoutePrefix = string.Empty; // Swagger na raiz da API
     });
 }
