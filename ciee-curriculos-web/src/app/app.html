@@ -1,4 +1,4 @@
-﻿<div class="min-h-screen flex flex-col bg-[#f8fafc] text-slate-900 font-sans">
+﻿<div class="min-h-screen flex flex-col bg-ciee-bg text-slate-900 font-sans">
   <!-- Barra de Navegação Global Institucional CIEE -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -8,7 +8,7 @@
           <a routerLink="/" class="flex items-center gap-2 group transition" title="Página Inicial - CIEE">
             <img src="assets/logo-CIEE-azul.svg" alt="Logotipo CIEE" class="h-9 w-auto object-contain transition group-hover:opacity-90" />
             <div class="hidden sm:block border-l border-slate-200 pl-3">
-              <span class="text-xs font-bold text-[#003087] tracking-wider uppercase block">Triagem de Talentos</span>
+              <span class="text-xs font-bold text-ciee-navy tracking-wider uppercase block">Triagem de Talentos</span>
               <span class="text-[11px] text-slate-500 block">Gestão de Currículos</span>
             </div>
           </a>
@@ -18,16 +18,16 @@
         <nav class="flex items-center space-x-3">
           <a 
             routerLink="/" 
-            routerLinkActive="bg-[#e8f1fb] text-[#003087] font-bold" 
+            routerLinkActive="bg-ciee-tint text-ciee-navy font-bold" 
             [routerLinkActiveOptions]="{ exact: true }"
-            class="text-sm font-semibold text-slate-700 hover:text-[#003087] hover:bg-slate-100 px-3.5 py-2 rounded-lg transition outline-none">
+            class="text-sm font-semibold text-slate-700 hover:text-ciee-navy hover:bg-slate-100 px-3.5 py-2 rounded-lg transition outline-none focus-visible:ring-2 focus-visible:ring-ciee-navy">
             Candidatos
           </a>
           <a 
             routerLink="/cadastro" 
-            routerLinkActive="bg-[#d65f04]"
-            class="inline-flex items-center gap-2 text-sm font-bold text-white bg-[#ed6b06] hover:bg-[#d65f04] active:bg-[#c64f01] px-4 py-2 rounded-lg transition shadow-xs outline-none">
-            <svg class="w-4 h-4 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            routerLinkActive="bg-ciee-orangeFocus"
+            class="inline-flex items-center gap-2 text-sm font-bold text-white bg-ciee-orange hover:opacity-95 active:bg-ciee-orangeFocus px-4 py-2 rounded-lg transition shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ciee-navy">
+            <svg class="w-4 h-4 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
             </svg>
             <span>Novo Candidato</span>
