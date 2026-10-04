@@ -54,3 +54,5 @@ __screenshots__/
 Thumbs.db
 
 /context
+
+.env
