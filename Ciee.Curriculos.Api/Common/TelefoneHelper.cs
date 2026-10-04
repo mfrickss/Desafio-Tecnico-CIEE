@@ -1,3 +1,4 @@
+using System;
 using System.Text.RegularExpressions;
 
 namespace Ciee.Curriculos.Api.Common;
@@ -6,12 +7,26 @@ public static class TelefoneHelper
 {
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
     private static readonly Regex ApenasDigitosRegex = new(@"\D", RegexOptions.Compiled, RegexTimeout);
+    
+    // Identifica e descarta sequências temporais de anos (ex.: 2019 - 2023, 2018 a 2022, 2020-2024)
+    public static readonly Regex IntervaloAnosRegex = new(
+        @"\b(?:19|20)\d{2}\s*(?:-|–|—|a|ate|até)\s*(?:19|20)\d{2}\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase,
+        RegexTimeout);
 
     public static string? FormatarTelefoneBrasil(string? telefone)
     {
         if (string.IsNullOrWhiteSpace(telefone)) return null;
 
-        var digitos = ApenasDigitosRegex.Replace(telefone, "");
+        var textoLimpo = telefone.Trim();
+
+        // Se contiver padrão de intervalo de anos, não deve ser considerado telefone
+        if (IntervaloAnosRegex.IsMatch(textoLimpo))
+        {
+            return null;
+        }
+
+        var digitos = ApenasDigitosRegex.Replace(textoLimpo, "");
 
         // Remove DDI 55 se fornecido
         if (digitos.StartsWith("55") && (digitos.Length == 12 || digitos.Length == 13))
@@ -35,6 +50,6 @@ public static class TelefoneHelper
             return $"({ddd}) {numero.Substring(0, 4)}-{numero.Substring(4)}";
         }
 
-        return telefone.Trim();
+        return textoLimpo;
     }
 }

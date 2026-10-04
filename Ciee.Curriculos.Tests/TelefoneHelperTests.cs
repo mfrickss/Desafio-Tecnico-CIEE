@@ -20,6 +20,18 @@ public class TelefoneHelperTests
         Assert.Equal(esperado, resultado);
     }
 
+    [Theory]
+    [InlineData("2019 - 2023")]
+    [InlineData("2018 a 2022")]
+    [InlineData("2020-2024")]
+    [InlineData("2015 – 2019")]
+    [InlineData("2016 até 2021")]
+    public void FormatarTelefoneBrasil_IntervalosDeAnos_DeveRetornarNulo(string intervaloAnos)
+    {
+        var resultado = TelefoneHelper.FormatarTelefoneBrasil(intervaloAnos);
+        Assert.Null(resultado);
+    }
+
     [Fact]
     public void FormatarTelefoneBrasil_NuloOuVazio_DeveRetornarNulo()
     {
