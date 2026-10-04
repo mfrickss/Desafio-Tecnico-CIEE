@@ -1,51 +1,60 @@
-﻿<div class="max-w-3xl mx-auto py-8 px-4 sm:px-6 lg:px-8 font-sans" transition-all duration-300 ease-out>
-  <!-- Barra de Ação Superior (Único ponto de retorno para a listagem) -->
+﻿<div class="max-w-3xl mx-auto py-8 px-4 sm:px-6 lg:px-8 font-sans transition-all duration-300 ease-out">
+  <!-- Barra de Ação Superior (Retorno para a listagem) -->
   <div class="mb-6 flex items-center justify-between">
-    <a routerLink="/" hlmBtn variant="ghost" size="sm" class="gap-1.5 text-slate-600 hover:text-[#003087]">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-      </svg>
+    <a routerLink="/" cieeBtn variant="ghost" size="sm" class="gap-1.5 text-slate-600 hover:text-ciee-navy">
+      <app-icon name="arrow-left" class="w-4 h-4"></app-icon>
       Voltar para a listagem
     </a>
   </div>
 
   @if (carregando()) {
-    <hlm-card class="p-12 text-center">
-      <div class="w-7 h-7 border-2 border-[#003087] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+    <ciee-card class="p-12 text-center">
+      <app-icon name="spinner" class="w-7 h-7 text-ciee-navy mx-auto mb-2"></app-icon>
       <p class="text-xs text-slate-500 font-medium">Carregando perfil do candidato...</p>
-    </hlm-card>
-  } @else if (erro()) {
-    <hlm-card class="p-8 text-center border-rose-200">
-      <div class="w-10 h-10 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-3">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
+    </ciee-card>
+  } @else if (erroConexao()) {
+    <ciee-card class="p-8 text-center border-rose-200">
+      <div class="w-10 h-10 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3">
+        <app-icon name="error-triangle" class="w-5 h-5"></app-icon>
+      </div>
+      <h2 class="text-base font-bold text-slate-800">Falha na comunicação com o servidor</h2>
+      <p class="text-xs text-slate-500 mt-1">Ocorreu um erro ao obter os detalhes do candidato. Verifique a conexão e tente novamente.</p>
+      <div class="mt-4">
+        <button (click)="carregar()" cieeBtn variant="outline" size="sm" class="text-xs">
+          Tentar novamente
+        </button>
+      </div>
+    </ciee-card>
+  } @else if (erroNaoEncontrado()) {
+    <ciee-card class="p-8 text-center border-amber-200">
+      <div class="w-10 h-10 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-3">
+        <app-icon name="info" class="w-5 h-5"></app-icon>
       </div>
       <h2 class="text-base font-bold text-slate-800">Candidato não encontrado</h2>
       <p class="text-xs text-slate-500 mt-1">O registro solicitado não existe ou foi removido.</p>
-    </hlm-card>
+    </ciee-card>
   } @else if (candidato(); as c) {
-    <!-- Painel de Detalhes com Spartan Card (Superfície corporativa limpa, sem gradiente artificial) -->
-    <hlm-card>
-      <div hlmCardHeader class="pb-4">
+    <!-- Painel de Detalhes Institucional CIEE -->
+    <ciee-card>
+      <div cieeCardHeader class="pb-4">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
             <div class="mb-2">
               @if (c.teveOrigemPdf) {
-                <span hlmBadge variant="outline" class="gap-1.5 font-semibold">
+                <span cieeBadge variant="outline" class="gap-1.5 font-semibold">
                   <img src="assets/pdfIcon.png" alt="PDF" class="w-3.5 h-3.5 object-contain inline-block" />
                   Extraído de PDF
                 </span>
               } @else {
-                <span hlmBadge variant="outline">
+                <span cieeBadge variant="outline">
                   Cadastro Manual
                 </span>
               }
             </div>
-            <h1 hlmCardTitle class="text-xl sm:text-2xl font-bold text-[#001f5c]">
+            <h1 cieeCardTitle class="text-xl sm:text-2xl font-bold text-ciee-dark">
               {{ c.nomeCompleto }}
             </h1>
-            <p hlmCardDescription class="mt-0.5 font-medium text-slate-600">
+            <p cieeCardDescription class="mt-0.5 font-medium text-slate-600">
               {{ c.cargoInteresse || 'Área de interesse não especificada' }}
             </p>
           </div>
@@ -58,14 +67,14 @@
         </div>
       </div>
 
-      <div hlmCardContent class="space-y-6 pt-6">
+      <div cieeCardContent class="space-y-6 pt-6">
         <!-- Informações de Contato -->
         <div>
-          <h2 class="text-xs font-bold text-[#003087] uppercase tracking-wider mb-3">Contato</h2>
+          <h2 class="text-xs font-bold text-ciee-navy uppercase tracking-wider mb-3">Contato</h2>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div class="p-3.5 rounded-md bg-slate-50 border border-slate-100">
               <span class="text-[11px] font-semibold text-slate-400 uppercase block">E-mail</span>
-              <a [href]="'mailto:' + c.email" class="text-sm font-semibold text-[#003087] hover:underline mt-0.5 block break-all">
+              <a [href]="'mailto:' + c.email" class="text-sm font-semibold text-ciee-navy hover:underline mt-0.5 block break-all">
                 {{ c.email }}
               </a>
             </div>
@@ -80,17 +89,17 @@
 
         <!-- Resumo Profissional -->
         <div>
-          <h2 class="text-xs font-bold text-[#003087] uppercase tracking-wider mb-2">Resumo Profissional</h2>
+          <h2 class="text-xs font-bold text-ciee-navy uppercase tracking-wider mb-2">Resumo Profissional</h2>
           <div class="p-4 rounded-md bg-slate-50 border border-slate-100 text-sm text-slate-700 leading-relaxed whitespace-pre-line">
             {{ c.resumoProfissional || 'Nenhum resumo profissional registrado.' }}
           </div>
         </div>
 
-        <!-- Metadados do Registro (Sem botões extras de retorno) -->
+        <!-- Metadados do Registro -->
         <div class="pt-4 border-t border-slate-100 text-xs text-slate-400">
           <span>Identificador CIEE: <code class="font-mono text-slate-600 font-semibold">{{ c.id }}</code></span>
         </div>
       </div>
-    </hlm-card>
+    </ciee-card>
   }
 </div>

@@ -2,20 +2,21 @@
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink, ActivatedRoute } from '@angular/router';
-import { Subject, Subscription } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import { Subject, Subscription, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 import { CandidatoService } from '../../services/candidato.service';
 import { Candidato } from '../../models/candidato.model';
-import { HlmButtonDirective } from '../../shared/ui/button.directive';
-import { HlmBadgeDirective } from '../../shared/ui/badge.directive';
-import { HlmInputDirective } from '../../shared/ui/input.directive';
+import { AppIconComponent } from '../../shared/ui/icon.component';
+import { CieeButtonDirective } from '../../shared/ui/button.directive';
+import { CieeBadgeDirective } from '../../shared/ui/badge.directive';
+import { CieeInputDirective } from '../../shared/ui/input.directive';
 import { 
-  HlmTableComponent, 
-  HlmTableHeaderDirective, 
-  HlmTableBodyDirective, 
-  HlmTableRowDirective, 
-  HlmTableHeadDirective, 
-  HlmTableCellDirective 
+  CieeTableComponent, 
+  CieeTableHeaderDirective, 
+  CieeTableBodyDirective, 
+  CieeTableRowDirective, 
+  CieeTableHeadDirective, 
+  CieeTableCellDirective 
 } from '../../shared/ui/table.components';
 
 @Component({
@@ -25,15 +26,16 @@ import {
     CommonModule, 
     FormsModule, 
     RouterLink,
-    HlmButtonDirective,
-    HlmBadgeDirective,
-    HlmInputDirective,
-    HlmTableComponent,
-    HlmTableHeaderDirective,
-    HlmTableBodyDirective,
-    HlmTableRowDirective,
-    HlmTableHeadDirective,
-    HlmTableCellDirective,
+    AppIconComponent,
+    CieeButtonDirective,
+    CieeBadgeDirective,
+    CieeInputDirective,
+    CieeTableComponent,
+    CieeTableHeaderDirective,
+    CieeTableBodyDirective,
+    CieeTableRowDirective,
+    CieeTableHeadDirective,
+    CieeTableCellDirective,
   ],
   templateUrl: './listagem.component.html'
 })
@@ -43,6 +45,7 @@ export class ListagemComponent implements OnInit, OnDestroy {
 
   candidatos = signal<Candidato[]>([]);
   carregando = signal<boolean>(true);
+  erroConexao = signal<boolean>(false);
   alertaSucesso = signal<boolean>(false);
   termoBusca: string = '';
 
@@ -52,22 +55,25 @@ export class ListagemComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.carregar();
 
-    // Controle reativo com debounce de 300ms, distinctUntilChanged e cancelamento de requisições anteriores
     this.buscaSub = this.buscaSubject
       .pipe(
         debounceTime(300),
         distinctUntilChanged(),
         switchMap((termo) => {
           this.carregando.set(true);
-          return this.candidatoService.listar(termo);
+          return this.candidatoService.listar(termo).pipe(
+            catchError(() => {
+              this.erroConexao.set(true);
+              this.carregando.set(false);
+              return of([]);
+            })
+          );
         })
       )
       .subscribe({
         next: (dados) => {
+          this.erroConexao.set(false);
           this.candidatos.set(dados);
-          this.carregando.set(false);
-        },
-        error: () => {
           this.carregando.set(false);
         }
       });
@@ -85,12 +91,16 @@ export class ListagemComponent implements OnInit, OnDestroy {
 
   carregar() {
     this.carregando.set(true);
-    this.candidatoService.listar(this.termoBusca).subscribe({
-      next: (dados) => {
-        this.candidatos.set(dados);
+    this.candidatoService.listar(this.termoBusca).pipe(
+      catchError(() => {
+        this.erroConexao.set(true);
         this.carregando.set(false);
-      },
-      error: () => {
+        return of([]);
+      })
+    ).subscribe({
+      next: (dados) => {
+        this.erroConexao.set(false);
+        this.candidatos.set(dados);
         this.carregando.set(false);
       }
     });
