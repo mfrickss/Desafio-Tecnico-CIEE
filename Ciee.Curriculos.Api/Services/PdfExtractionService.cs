@@ -1,20 +1,27 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Ciee.Curriculos.Api.Common;
 using Ciee.Curriculos.Api.DTOs;
+using Microsoft.Extensions.Logging;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 
 namespace Ciee.Curriculos.Api.Services;
 
-public interface IPdfExtractionService
-{
-    ExtracaoPdfResponseDto ExtrairDados(Stream pdfStream);
-}
-
 public class PdfExtractionService : IPdfExtractionService
 {
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
+
+    private readonly ILogger<PdfExtractionService>? _logger;
+
+    public PdfExtractionService(ILogger<PdfExtractionService>? logger = null)
+    {
+        _logger = logger;
+    }
 
     private static readonly Regex EmailRegex = new(
         @"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
@@ -24,6 +31,11 @@ public class PdfExtractionService : IPdfExtractionService
     private static readonly Regex TelefoneRegex = new(
         @"(?:(?:\+|00)?(55)\s*)?(?:\(?([1-9][0-9])\)?\s*)?(?:((?:9\d|[2-9])\d{3})\s*[-.]?\s*(\d{4}))",
         RegexOptions.Compiled,
+        RegexTimeout);
+
+    private static readonly Regex IntervaloAnosRegex = new(
+        @"\b(?:19|20)\d{2}\s*(?:-|–|—|a|ate|até)\s*(?:19|20)\d{2}\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase,
         RegexTimeout);
 
     private static readonly Regex InicioResumoRegex = new(
@@ -49,6 +61,13 @@ public class PdfExtractionService : IPdfExtractionService
         "contato", "contatos", "informacoes de contato", "informacoes adicionais", "atividades complementares"
     };
 
+    private static readonly HashSet<string> CabecalhosCompostosIgnorados = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "curriculum vitae", "curriculo vitae", "currículo vitae", "dados pessoais", "informacoes pessoais",
+        "informações pessoais", "dados cadastrais", "informacoes de contato", "informações de contato",
+        "dados de contato", "informacao de contato", "informação de contato"
+    };
+
     public ExtracaoPdfResponseDto ExtrairDados(Stream pdfStream)
     {
         try
@@ -61,7 +80,7 @@ public class PdfExtractionService : IPdfExtractionService
                 {
                     return new ExtracaoPdfResponseDto(
                         null, null, null, null, null, string.Empty, false,
-                        "O arquivo PDF esta vazio ou nao possui paginas legiveis.");
+                        "O arquivo PDF está vazio ou não possui páginas legíveis.");
                 }
 
                 foreach (var page in document.GetPages())
@@ -88,7 +107,7 @@ public class PdfExtractionService : IPdfExtractionService
             {
                 return new ExtracaoPdfResponseDto(
                     null, null, null, null, null, string.Empty, false,
-                    "Nao foi possivel extrair texto do PDF. O documento pode ser uma imagem escaneada.");
+                    "Não foi possível extrair texto do PDF. O documento pode ser uma imagem escaneada.");
             }
 
             for (var i = 0; i < linhasExtraidas.Count; i++)
@@ -98,7 +117,7 @@ public class PdfExtractionService : IPdfExtractionService
             var textoCompleto = NormalizarTextoPdf(string.Join(Environment.NewLine, linhasExtraidas));
 
             var emailEncontrado = ExtrairEmail(textoCompleto);
-            var telefoneEncontrado = ExtrairTelefone(textoCompleto);
+            var telefoneEncontrado = ExtrairTelefone(linhasExtraidas, textoCompleto);
             var nomeEncontrado = ExtrairNome(linhasExtraidas);
             var resumoSugerido = ExtrairResumo(linhasExtraidas, textoCompleto);
             var cargoSugerido = ExtrairCargo(textoCompleto, linhasExtraidas, nomeEncontrado, resumoSugerido);
@@ -111,13 +130,20 @@ public class PdfExtractionService : IPdfExtractionService
                 ResumoProfissional: resumoSugerido,
                 TextoBruto: textoCompleto,
                 Sucesso: true,
-                Mensagem: "Dados extraidos do curriculo com sucesso.");
+                Mensagem: "Dados extraídos do currículo com sucesso.");
         }
         catch (Exception ex)
         {
+            _logger?.LogError(ex, "Falha durante o processamento do arquivo PDF de currículo.");
             return new ExtracaoPdfResponseDto(
-                null, null, null, null, null, string.Empty, false,
-                $"Falha ao processar o arquivo PDF: {ex.Message}");
+                NomeCompleto: null,
+                Email: null,
+                Telefone: null,
+                CargoInteresse: null,
+                ResumoProfissional: null,
+                TextoBruto: string.Empty,
+                Sucesso: false,
+                Mensagem: "Não foi possível processar o arquivo PDF. Verifique se o documento não está corrompido ou protegido por senha.");
         }
     }
 
@@ -133,7 +159,6 @@ public class PdfExtractionService : IPdfExtractionService
                      .Replace("c\u00B8", "ç").Replace("C\u00B8", "Ç");
 
         // Casos citados no PRD onde o acento foi posicionado incorretamente na sequência de glifos
-        // "Jun´ior" ou "Ju´nior" -> "Júnior" (exigindo explicitamente o glifo de acento agudo ou apóstrofo)
         texto = Regex.Replace(texto, @"\bJu[´'\u02CA\u0301]nior\b", "Júnior", RegexOptions.IgnoreCase, RegexTimeout);
         texto = Regex.Replace(texto, @"\bJun[´'\u02CA\u0301]ior\b", "Júnior", RegexOptions.IgnoreCase, RegexTimeout);
 
@@ -147,19 +172,30 @@ public class PdfExtractionService : IPdfExtractionService
         // "elegıv´eis" / "elegiv´eis" -> "elegíveis"
         texto = Regex.Replace(texto, @"\beleg[\u0131i]v[´'\u02CA\u0301]+eis\b", "elegíveis", RegexOptions.IgnoreCase, RegexTimeout);
 
-        // Mapeamento específico para a letra "i" e dotless i ("\u0131") com acento agudo ou apóstrofo
-        texto = Regex.Replace(texto, @"(?:\u0131|i)\s*[\u00B4\u02CA\u0301']", "í", RegexOptions.None, RegexTimeout);
-        texto = Regex.Replace(texto, @"[\u00B4\u02CA\u0301']\s*(?:\u0131|i)", "í", RegexOptions.None, RegexTimeout);
-        texto = Regex.Replace(texto, @"(?:\u0130|I)\s*[\u00B4\u02CA\u0301']", "Í", RegexOptions.None, RegexTimeout);
-        texto = Regex.Replace(texto, @"[\u00B4\u02CA\u0301']\s*(?:\u0130|I)", "Í", RegexOptions.None, RegexTimeout);
+        // Mapeamento específico para a letra "i" e dotless i ("\u0131") com acento agudo real
+        texto = Regex.Replace(texto, @"(?:\u0131|i)\s*[\u00B4\u02CA\u0301]", "í", RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"[\u00B4\u02CA\u0301]\s*(?:\u0131|i)", "í", RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"(?:\u0130|I)\s*[\u00B4\u02CA\u0301]", "Í", RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"[\u00B4\u02CA\u0301]\s*(?:\u0130|I)", "Í", RegexOptions.None, RegexTimeout);
+
+        // Proteger apóstrofos em nomes próprios como Sant'Anna, D'Angelo, O'Connor
+        const string tokenApostrofo = "___APOSTROFE_PROTEGIDO___";
+        texto = Regex.Replace(texto, @"(?<=[a-zA-Z])['’](?=[a-zA-Z])", tokenApostrofo, RegexOptions.None, RegexTimeout);
+
+        // Diacríticos agudos reais (\u00B4, \u02CA, \u0301) antes ou depois da vogal
+        texto = Regex.Replace(texto, @"[\u00B4\u02CA\u0301]\s*([aeouyAEOUY])", m => SubstituirAgudo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"([aeouyAEOUY])\s*[\u00B4\u02CA\u0301]", m => SubstituirAgudo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+
+        // Apóstrofo solto que funciona como acento agudo apenas se colado a vogais e sem letras nos dois lados
+        texto = Regex.Replace(texto, @"(?<![a-zA-Z])['’]\s*([aeiouyAEIOUY])", m => SubstituirAgudo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"([aeiouyAEIOUY])\s*['’](?![a-zA-Z])", m => SubstituirAgudo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+
+        // Restaura o apóstrofo protegido
+        texto = texto.Replace(tokenApostrofo, "'");
 
         // Converte dotless i remanescente sem acento para i
         texto = texto.Replace("\u0131", "i");
         texto = texto.Replace("\u0130", "I");
-
-        // Diacríticos agudos soltos / decompostos antes ou depois da vogal
-        texto = Regex.Replace(texto, @"[\u00B4\u02CA\u0301']\s*([aeouyAEOUY])", m => SubstituirAgudo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
-        texto = Regex.Replace(texto, @"([aeouyAEOUY])\s*[\u00B4\u02CA\u0301']", m => SubstituirAgudo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
 
         // Mapeamento de til, circunflexo e crase
         texto = Regex.Replace(texto, @"[\u02DC~\u0303]\s*([aoAO])", m => SubstituirTil(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
@@ -204,20 +240,50 @@ public class PdfExtractionService : IPdfExtractionService
         return match.Success ? match.Value.Trim() : null;
     }
 
-    private static string? ExtrairTelefone(string texto)
+    private static string? ExtrairTelefone(IReadOnlyList<string> linhas, string textoCompleto)
     {
-        var match = TelefoneRegex.Match(texto);
-        if (!match.Success) return null;
+        foreach (var linha in linhas)
+        {
+            if (IntervaloAnosRegex.IsMatch(linha))
+            {
+                continue;
+            }
 
-        var raw = match.Value.Trim();
-        return TelefoneHelper.FormatarTelefoneBrasil(raw);
+            var matchLinha = TelefoneRegex.Match(linha);
+            if (matchLinha.Success)
+            {
+                var formatado = TelefoneHelper.FormatarTelefoneBrasil(matchLinha.Value);
+                if (!string.IsNullOrWhiteSpace(formatado) && !IntervaloAnosRegex.IsMatch(formatado))
+                {
+                    return formatado;
+                }
+            }
+        }
+
+        var matches = TelefoneRegex.Matches(textoCompleto);
+        foreach (Match match in matches)
+        {
+            var raw = match.Value.Trim();
+            if (IntervaloAnosRegex.IsMatch(raw))
+            {
+                continue;
+            }
+
+            var formatado = TelefoneHelper.FormatarTelefoneBrasil(raw);
+            if (!string.IsNullOrWhiteSpace(formatado) && !IntervaloAnosRegex.IsMatch(formatado))
+            {
+                return formatado;
+            }
+        }
+
+        return null;
     }
 
     private static string? ExtrairNome(IEnumerable<string> linhas)
     {
         var palavrasIgnoradas = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "curriculo", "curriculum", "vitae", "resume", "cv", "dados", "contato", "telefone",
+            "curriculo", "currículo", "curriculum", "vitae", "resume", "cv", "dados", "contato", "telefone",
             "email", "endereço", "endereco", "perfil", "sobre", "objetivo", "formação", "formacao"
         };
 
@@ -225,7 +291,10 @@ public class PdfExtractionService : IPdfExtractionService
         {
             var linhaLimpa = linha.Trim();
             if (linhaLimpa.Length < 3) continue;
+
             if (palavrasIgnoradas.Contains(linhaLimpa)) continue;
+            if (CabecalhosCompostosIgnorados.Contains(linhaLimpa)) continue;
+
             if (EmailRegex.IsMatch(linhaLimpa)) continue;
             if (TelefoneRegex.IsMatch(linhaLimpa)) continue;
 
@@ -270,7 +339,7 @@ public class PdfExtractionService : IPdfExtractionService
 
     private static string? ExtrairCargoExplicito(string texto)
     {
-        var regexCargo = new Regex(@"(?:cargo(?:\s+pretendido|\s+desejado)?|objetivo(?:\s+profissional)?|interesse|posi[çc][ãa]o(?:\s+desejada)?|vaga(?:\s+desejada|\s+pretendida)?|fun[çc][ãa]o(?:\s+pretendida)?|área\s+de\s+interesse)[\s:]+([^\r\n]+)",
+        var regexCargo = new Regex(@"(?:cargo(?:\s+pretendido|\s+desejado)?|objetivo(?:\s+profissional)?|posi[çc][ãa]o(?:\s+desejada)?|vaga(?:\s+desejada|\s+pretendida)?|fun[çc][ãa]o(?:\s+pretendida)?|área\s+de\s+interesse)[\s:]+([^\r\n]+)",
             RegexOptions.IgnoreCase,
             RegexTimeout);
 

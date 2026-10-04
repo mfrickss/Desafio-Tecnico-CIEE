@@ -1,12 +1,19 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using Ciee.Curriculos.Api.Common;
 using Ciee.Curriculos.Api.Data;
 using Ciee.Curriculos.Api.DTOs;
 using Ciee.Curriculos.Api.Models;
 using Ciee.Curriculos.Api.Services;
 using FluentValidation;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Ciee.Curriculos.Api.Controllers;
 
@@ -73,16 +80,10 @@ public class CandidatosController : ControllerBase
         var c = await _context.Candidatos.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (c == null)
         {
-            var problem = new ProblemDetails
-            {
-                Status = StatusCodes.Status404NotFound,
-                Title = "Candidato não encontrado",
-                Detail = $"Nenhum candidato localizado com o identificador '{id}'.",
-                Instance = HttpContext.Request.Path
-            };
-            problem.Extensions["mensagem"] = "Candidato nao encontrado.";
-
-            return NotFound(problem);
+            return Problem(
+                detail: $"Nenhum candidato localizado com o identificador '{id}'.",
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Candidato não encontrado");
         }
 
         return Ok(new CandidatoResponseDto(
@@ -116,7 +117,7 @@ public class CandidatosController : ControllerBase
                 Instance = HttpContext.Request.Path
             };
 
-            problem.Extensions["mensagem"] = "Dados invalidos para cadastro do candidato.";
+            problem.Extensions["mensagem"] = "Dados inválidos para cadastro do candidato.";
             problem.Extensions["erros"] = validationResult.Errors.Select(e => new { campo = e.PropertyName, erro = e.ErrorMessage }).ToList();
 
             return BadRequest(problem);
@@ -167,7 +168,7 @@ public class CandidatosController : ControllerBase
         if (arquivo.Length > tamanhoMaximoBytes)
         {
             return CriarProblemBadRequest(
-                "O arquivo excede o limite maximo permitido de 5 MB.",
+                "O arquivo excede o limite máximo permitido de 5 MB.",
                 $"Tamanho recebido: {arquivo.Length} bytes. Máximo permitido: {tamanhoMaximoBytes} bytes.");
         }
 
@@ -175,7 +176,7 @@ public class CandidatosController : ControllerBase
         if (extensao != ".pdf" || (arquivo.ContentType != "application/pdf" && !string.IsNullOrEmpty(arquivo.ContentType) && arquivo.ContentType != "application/octet-stream"))
         {
             return CriarProblemBadRequest(
-                "Formato de arquivo invalido. Apenas documentos PDF sao aceitos.",
+                "Formato de arquivo inválido. Apenas documentos PDF são aceitos.",
                 "A extensão ou o MIME type informado não é suportado.");
         }
 
@@ -195,7 +196,7 @@ public class CandidatosController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro ao processar arquivo PDF de curriculo.");
+            _logger.LogError(ex, "Erro ao processar arquivo PDF de currículo.");
             var problem = new ProblemDetails
             {
                 Status = StatusCodes.Status500InternalServerError,
@@ -222,18 +223,9 @@ public class CandidatosController : ControllerBase
         return bytesLidos == PdfMagicBytes.Length && buffer.SequenceEqual(PdfMagicBytes);
     }
 
-    private BadRequestObjectResult CriarProblemBadRequest(string mensagem, string detail)
-    {
-        var problem = new ProblemDetails
-        {
-            Status = StatusCodes.Status400BadRequest,
-            Title = "Requisição inválida",
-            Detail = detail,
-            Instance = HttpContext.Request.Path
-        };
-
-        problem.Extensions["mensagem"] = mensagem;
-
-        return BadRequest(problem);
-    }
+    private ObjectResult CriarProblemBadRequest(string mensagem, string detail) =>
+        Problem(
+            detail: detail,
+            statusCode: StatusCodes.Status400BadRequest,
+            title: mensagem);
 }

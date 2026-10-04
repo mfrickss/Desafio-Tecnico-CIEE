@@ -63,6 +63,68 @@ public class PdfExtractionServiceTests
     }
 
     [Fact]
+    public void ExtrairDados_IgnorarIntervaloDeAnosNaIdentificacaoDeTelefone()
+    {
+        var builder = new PdfDocumentBuilder();
+        var page = builder.AddPage(PageSize.A4);
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+
+        page.AddText("Marcos Pontes", 16, new PdfPoint(50, 750), font);
+        page.AddText("marcos.pontes@empresa.com", 12, new PdfPoint(50, 720), font);
+        page.AddText("Experiência: 2019 - 2023 na empresa Tech", 12, new PdfPoint(50, 700), font);
+        page.AddText("Telefone: (11) 99887-6655", 12, new PdfPoint(50, 680), font);
+
+        var bytes = builder.Build();
+        using var stream = new MemoryStream(bytes);
+
+        var resultado = _service.ExtrairDados(stream);
+
+        Assert.True(resultado.Sucesso);
+        Assert.Equal("(11) 99887-6655", resultado.Telefone);
+    }
+
+    [Fact]
+    public void ExtrairDados_CabecalhosCompostos_DevemSerIgnoradosNaDetecaoDeNome()
+    {
+        var builder = new PdfDocumentBuilder();
+        var page = builder.AddPage(PageSize.A4);
+        var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+
+        page.AddText("Curriculum Vitae", 18, new PdfPoint(50, 780), font);
+        page.AddText("Dados Pessoais", 14, new PdfPoint(50, 760), font);
+        page.AddText("Julio Sant'Anna", 16, new PdfPoint(50, 740), font);
+        page.AddText("julio.santanna@empresa.com", 12, new PdfPoint(50, 720), font);
+
+        var bytes = builder.Build();
+        using var stream = new MemoryStream(bytes);
+
+        var resultado = _service.ExtrairDados(stream);
+
+        Assert.True(resultado.Sucesso);
+        Assert.Equal("Julio Sant'Anna", resultado.NomeCompleto);
+    }
+
+    [Fact]
+    public void NormalizarTextoPdf_PreservarApostrofoEmSobrenomesLiterais()
+    {
+        var entrada = "Julio Sant'Anna e Marco D'Angelo";
+        var resultado = PdfExtractionService.NormalizarTextoPdf(entrada);
+
+        Assert.Equal("Julio Sant'Anna e Marco D'Angelo", resultado);
+    }
+
+    [Fact]
+    public void ExtrairDados_PdfCorrompidoOuInvalido_DeveRetornarMensagemAmigavelEmPortugues()
+    {
+        using var stream = new MemoryStream(new byte[] { 1, 2, 3, 4, 5 });
+
+        var resultado = _service.ExtrairDados(stream);
+
+        Assert.False(resultado.Sucesso);
+        Assert.Contains("Não foi possível processar o arquivo PDF", resultado.Mensagem);
+    }
+
+    [Fact]
     public void ExtrairDados_ResumoProfissionalMultilinhas_DeveCapturarTodosOsParagrafosComoTextoContinuo()
     {
         var builder = new PdfDocumentBuilder();
@@ -253,17 +315,6 @@ public class PdfExtractionServiceTests
         Assert.DoesNotContain("\u0301", resultado);
         Assert.DoesNotContain("\u0302", resultado);
         Assert.Contains("Nome com byte nulo", resultado);
-    }
-
-    [Fact]
-    public void ExtrairDados_StreamVazioOuInvalido_DeveRetornarFalhaAmigavel()
-    {
-        using var stream = new MemoryStream(new byte[] { 1, 2, 3, 4 });
-
-        var resultado = _service.ExtrairDados(stream);
-
-        Assert.False(resultado.Sucesso);
-        Assert.NotNull(resultado.Mensagem);
     }
 
     [Fact]
