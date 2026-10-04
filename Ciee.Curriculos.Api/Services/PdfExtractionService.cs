@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -33,40 +34,37 @@ public class PdfExtractionService : IPdfExtractionService
         RegexOptions.Compiled,
         RegexTimeout);
 
-    private static readonly Regex IntervaloAnosRegex = new(
-        @"\b(?:19|20)\d{2}\s*(?:-|–|—|a|ate|até)\s*(?:19|20)\d{2}\b",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase,
-        RegexTimeout);
-
     private static readonly Regex InicioResumoRegex = new(
         @"^(?:resumo(?:\s+profissional)?|perfil(?:\s+profissional)?|sobre\s+mim|sobre|apresenta[çc][ãa]o|s[íi]ntese(?:\s+profissional)?|sum[áa]rio(?:\s+de\s+qualifica[çc][õo]es)?|mini\s+bio)\b(?:\s*[:\-])?",
         RegexOptions.Compiled | RegexOptions.IgnoreCase,
         RegexTimeout);
 
-    private static readonly HashSet<string> SecoesFinais = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "competencias", "competências", "habilidades", "habilidades tecnicas", "habilidades técnicas", "skills", "principais competencias", "principais competências", "tecnologias",
-        "experiencia", "experiência", "experiencias", "experiências", "experiencia profissional", "experiência profissional", "historico profissional", "histórico profissional", "atuacao profissional", "atuação profissional",
-        "formacao", "formação", "formacao academica", "formação acadêmica", "educacao", "educação", "escolaridade", "graduacao", "graduação",
-        "projetos", "projetos relevantes", "principais projetos", "cursos", "certificacoes", "certificações", "certificados", "licencas", "licenças", "idiomas", "linguas", "línguas",
-        "contato", "contatos", "informacoes de contato", "informações de contato", "informacoes adicionais", "informações adicionais", "atividades complementares"
-    };
-
-    private static readonly HashSet<string> SecoesFinaisSemAcento = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly FrozenSet<string> SecoesFinaisSemAcento = new[]
     {
         "competencias", "habilidades", "habilidades tecnicas", "skills", "principais competencias", "tecnologias",
         "experiencia", "experiencias", "experiencia profissional", "historico profissional", "atuacao profissional",
         "formacao", "formacao academica", "educacao", "escolaridade", "graduacao",
-        "projetos", "projetos relevantes", "principais projetos", "cursos", "certificacoes", "certificados", "licencas", "idiomas", "linguas",
-        "contato", "contatos", "informacoes de contato", "informacoes adicionais", "atividades complementares"
-    };
+        "projetos", "projetos relevantes", "principais projetos", "cursos", "certificacoes", "certificados", "licencas",
+        "idiomas", "linguas", "contato", "contatos", "informacoes de contato", "informacoes adicionais", "atividades complementares"
+    }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
-    private static readonly HashSet<string> CabecalhosCompostosIgnorados = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly FrozenSet<string> CabecalhosSecaoIgnoradosSemAcento = new[]
     {
-        "curriculum vitae", "curriculo vitae", "currículo vitae", "dados pessoais", "informacoes pessoais",
-        "informações pessoais", "dados cadastrais", "informacoes de contato", "informações de contato",
-        "dados de contato", "informacao de contato", "informação de contato"
-    };
+        "curriculum vitae",
+        "curriculo vitae",
+        "curriculo profissional",
+        "dados pessoais",
+        "informacoes pessoais",
+        "dados cadastrais",
+        "informacoes de contato",
+        "dados de contato",
+        "informacao de contato",
+        "historico profissional",
+        "experiencia profissional",
+        "resumo profissional",
+        "perfil profissional",
+        "objetivo profissional"
+    }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
     public ExtracaoPdfResponseDto ExtrairDados(Stream pdfStream)
     {
@@ -134,7 +132,7 @@ public class PdfExtractionService : IPdfExtractionService
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Falha durante o processamento do arquivo PDF de currículo.");
+            _logger?.LogError(ex, "Falha durante o processamento do arquivo PDF de currículo: {MensagemInterna}", ex.Message);
             return new ExtracaoPdfResponseDto(
                 NomeCompleto: null,
                 Email: null,
@@ -158,7 +156,7 @@ public class PdfExtractionService : IPdfExtractionService
         texto = texto.Replace("\u00B8c", "ç").Replace("\u00B8C", "Ç")
                      .Replace("c\u00B8", "ç").Replace("C\u00B8", "Ç");
 
-        // Casos citados no PRD onde o acento foi posicionado incorretamente na sequência de glifos
+        // Tratamento de glifos onde o diacrítico agudo foi extraído fora de ordem em relação à vogal correspondente
         texto = Regex.Replace(texto, @"\bJu[´'\u02CA\u0301]nior\b", "Júnior", RegexOptions.IgnoreCase, RegexTimeout);
         texto = Regex.Replace(texto, @"\bJun[´'\u02CA\u0301]ior\b", "Júnior", RegexOptions.IgnoreCase, RegexTimeout);
 
@@ -244,7 +242,7 @@ public class PdfExtractionService : IPdfExtractionService
     {
         foreach (var linha in linhas)
         {
-            if (IntervaloAnosRegex.IsMatch(linha))
+            if (TelefoneHelper.IntervaloAnosRegex.IsMatch(linha))
             {
                 continue;
             }
@@ -253,7 +251,7 @@ public class PdfExtractionService : IPdfExtractionService
             if (matchLinha.Success)
             {
                 var formatado = TelefoneHelper.FormatarTelefoneBrasil(matchLinha.Value);
-                if (!string.IsNullOrWhiteSpace(formatado) && !IntervaloAnosRegex.IsMatch(formatado))
+                if (!string.IsNullOrWhiteSpace(formatado) && !TelefoneHelper.IntervaloAnosRegex.IsMatch(formatado))
                 {
                     return formatado;
                 }
@@ -264,13 +262,13 @@ public class PdfExtractionService : IPdfExtractionService
         foreach (Match match in matches)
         {
             var raw = match.Value.Trim();
-            if (IntervaloAnosRegex.IsMatch(raw))
+            if (TelefoneHelper.IntervaloAnosRegex.IsMatch(raw))
             {
                 continue;
             }
 
             var formatado = TelefoneHelper.FormatarTelefoneBrasil(raw);
-            if (!string.IsNullOrWhiteSpace(formatado) && !IntervaloAnosRegex.IsMatch(formatado))
+            if (!string.IsNullOrWhiteSpace(formatado) && !TelefoneHelper.IntervaloAnosRegex.IsMatch(formatado))
             {
                 return formatado;
             }
@@ -292,9 +290,17 @@ public class PdfExtractionService : IPdfExtractionService
             var linhaLimpa = linha.Trim();
             if (linhaLimpa.Length < 3) continue;
 
-            if (palavrasIgnoradas.Contains(linhaLimpa)) continue;
-            if (CabecalhosCompostosIgnorados.Contains(linhaLimpa)) continue;
+            // 1. Rejeição imediata de cabeçalhos de seção normalizados sem acento
+            var linhaSemAcento = CargoParsingHelper.RemoverAcentos(linhaLimpa)
+                .Trim(" :-\u2013\u2014|\u2022*;".ToCharArray())
+                .ToLowerInvariant();
+            if (CabecalhosSecaoIgnoradosSemAcento.Contains(linhaSemAcento))
+            {
+                continue;
+            }
 
+            if (palavrasIgnoradas.Contains(linhaLimpa)) continue;
+            
             if (EmailRegex.IsMatch(linhaLimpa)) continue;
             if (TelefoneRegex.IsMatch(linhaLimpa)) continue;
 
@@ -339,9 +345,10 @@ public class PdfExtractionService : IPdfExtractionService
 
     private static string? ExtrairCargoExplicito(string texto)
     {
-        var regexCargo = new Regex(@"(?:cargo(?:\s+pretendido|\s+desejado)?|objetivo(?:\s+profissional)?|posi[çc][ãa]o(?:\s+desejada)?|vaga(?:\s+desejada|\s+pretendida)?|fun[çc][ãa]o(?:\s+pretendida)?|área\s+de\s+interesse)[\s:]+([^\r\n]+)",
-            RegexOptions.IgnoreCase,
-            RegexTimeout);
+        var regexCargo = new Regex(
+        @"(?:cargo(?:\s+pretendido|\s+desejado|\s+de\s+interesse)?|objetivo(?:\s+profissional)?|posi[çc][ãa]o(?:\s+desejada)?|vaga(?:\s+desejada|\s+pretendida|\s+de\s+interesse)?|fun[çc][ãa]o(?:\s+pretendida)?|(?:[áa]rea|setor)\s+de\s+interesse)[\s:]+([^\r\n]+)",
+        RegexOptions.IgnoreCase,
+        RegexTimeout);
 
         var match = regexCargo.Match(texto);
         if (match.Success && match.Groups[1].Value.Length > 2)
@@ -424,8 +431,6 @@ public class PdfExtractionService : IPdfExtractionService
         return null;
     }
 
-    public static string LimparEDelimitarCargo(string texto) => CargoParsingHelper.LimparEDelimitarCargo(texto);
-
     private static string? ExtrairResumo(IReadOnlyList<string> linhas, string textoCompleto)
     {
         var partesResumo = new List<string>();
@@ -487,12 +492,10 @@ public class PdfExtractionService : IPdfExtractionService
         var linhaLimpa = Regex.Replace(linha.ToLowerInvariant(), @"[:\-_|•*]", "", RegexOptions.None, RegexTimeout).Trim();
         if (string.IsNullOrWhiteSpace(linhaLimpa)) return false;
 
-        if (SecoesFinais.Contains(linhaLimpa)) return true;
-
-        var linhaSemAcento = CargoParsingHelper.RemoverAcentos(linhaLimpa);
+        var linhaSemAcento = CargoParsingHelper.RemoverAcentos(linhaLimpa).Trim();
         if (SecoesFinaisSemAcento.Contains(linhaSemAcento)) return true;
 
-        if (linhaLimpa.Length <= 50)
+        if (linhaSemAcento.Length <= 50)
         {
             foreach (var secao in SecoesFinaisSemAcento)
             {
