@@ -50,7 +50,6 @@ Desafio-Tecnico-CIEE/
 │   ├── src/app/pages/               # Componentes inteligentes (Cadastro, Listagem, Detalhes)
 │   ├── src/app/services/            # Serviços de integração HTTP (CandidatoService)
 │   └── src/app/models/              # Interfaces tipadas TypeScript
-├── thoughts/shared/research/        # Documentações de arquitetura e PRDs
 ├── curriculo_ficticio.pdf           # Fixture permanente estruturado para demonstração e testes
 ├── docker-compose.yml               # Configuração do container SQL Server 2022
 ├── README.md                        # Guia oficial de inicialização e documentação
