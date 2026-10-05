@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Ciee.Curriculos.Api.Common;
 using Ciee.Curriculos.Api.Data;
 using Ciee.Curriculos.Api.DTOs;
+using Ciee.Curriculos.Api.Exceptions;
 using Ciee.Curriculos.Api.Models;
 using Ciee.Curriculos.Api.Services;
 using FluentValidation;
@@ -22,6 +23,7 @@ namespace Ciee.Curriculos.Api.Controllers;
 public class CandidatosController : ControllerBase
 {
     private static readonly byte[] PdfMagicBytes = Encoding.ASCII.GetBytes("%PDF-");
+    private const long TamanhoMaximoBytes = 5 * 1024 * 1024; // 5 MB
 
     private readonly AppDbContext _context;
     private readonly IPdfExtractionService _pdfExtractionService;
@@ -80,10 +82,7 @@ public class CandidatosController : ControllerBase
         var c = await _context.Candidatos.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (c == null)
         {
-            return Problem(
-                detail: $"Nenhum candidato localizado com o identificador '{id}'.",
-                statusCode: StatusCodes.Status404NotFound,
-                title: "Candidato não encontrado");
+            throw new NotFoundException($"Nenhum candidato localizado com o identificador '{id}'.");
         }
 
         return Ok(new CandidatoResponseDto(
@@ -99,7 +98,7 @@ public class CandidatosController : ControllerBase
 
     [HttpPost]
     [ProducesResponseType(typeof(CandidatoResponseDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(HttpValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<CandidatoResponseDto>> Criar([FromBody] CriarCandidatoDto dto)
     {
         var validationResult = await _validator.ValidateAsync(dto);
@@ -109,18 +108,10 @@ public class CandidatosController : ControllerBase
                 .GroupBy(e => e.PropertyName)
                 .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
 
-            var problem = new ValidationProblemDetails(errosFormatados)
-            {
-                Status = StatusCodes.Status400BadRequest,
-                Title = "Dados inválidos para cadastro do candidato.",
-                Detail = "Um ou mais campos contêm erros de validação.",
-                Instance = HttpContext.Request.Path
-            };
-
-            problem.Extensions["mensagem"] = "Dados inválidos para cadastro do candidato.";
-            problem.Extensions["erros"] = validationResult.Errors.Select(e => new { campo = e.PropertyName, erro = e.ErrorMessage }).ToList();
-
-            return BadRequest(problem);
+            throw new Ciee.Curriculos.Api.Exceptions.ValidationException(
+                errosFormatados,
+                message: "Um ou mais campos contêm erros de validação.",
+                title: "Dados inválidos para cadastro do candidato.");
         }
 
         var candidato = new Candidato
@@ -159,55 +150,37 @@ public class CandidatosController : ControllerBase
     {
         if (arquivo == null || arquivo.Length == 0)
         {
-            return CriarProblemBadRequest(
-                "Nenhum arquivo enviado. Selecione um arquivo PDF.",
-                "O corpo da requisição não possui um arquivo anexado.");
+            throw new BusinessException(
+                "O corpo da requisição não possui um arquivo anexado.",
+                title: "Nenhum arquivo enviado. Selecione um arquivo PDF.");
         }
 
-        const long tamanhoMaximoBytes = 5 * 1024 * 1024; // 5 MB
-        if (arquivo.Length > tamanhoMaximoBytes)
+        if (arquivo.Length > TamanhoMaximoBytes)
         {
-            return CriarProblemBadRequest(
-                "O arquivo excede o limite máximo permitido de 5 MB.",
-                $"Tamanho recebido: {arquivo.Length} bytes. Máximo permitido: {tamanhoMaximoBytes} bytes.");
+            throw new BusinessException(
+                $"Tamanho recebido: {arquivo.Length} bytes. Máximo permitido: {TamanhoMaximoBytes} bytes.",
+                title: "O arquivo excede o limite máximo permitido de 5 MB.");
         }
 
         var extensao = Path.GetExtension(arquivo.FileName).ToLowerInvariant();
         if (extensao != ".pdf" || (arquivo.ContentType != "application/pdf" && !string.IsNullOrEmpty(arquivo.ContentType) && arquivo.ContentType != "application/octet-stream"))
         {
-            return CriarProblemBadRequest(
-                "Formato de arquivo inválido. Apenas documentos PDF são aceitos.",
-                "A extensão ou o MIME type informado não é suportado.");
+            throw new BusinessException(
+                "A extensão ou o MIME type informado não é suportado.",
+                title: "Formato de arquivo inválido. Apenas documentos PDF são aceitos.");
         }
 
-        try
+        using var stream = arquivo.OpenReadStream();
+        if (!ValidarMagicBytesPdf(stream))
         {
-            using var stream = arquivo.OpenReadStream();
-            if (!ValidarMagicBytesPdf(stream))
-            {
-                return CriarProblemBadRequest(
-                    "O arquivo enviado não é um PDF válido ou está corrompido.",
-                    "O cabeçalho do arquivo não contém a assinatura binária esperada de um documento PDF (%PDF-).");
-            }
-
-            stream.Position = 0;
-            var resultado = _pdfExtractionService.ExtrairDados(stream);
-            return Ok(resultado);
+            throw new BusinessException(
+                "O cabeçalho do arquivo não contém a assinatura binária esperada de um documento PDF (%PDF-).",
+                title: "O arquivo enviado não é um PDF válido ou está corrompido.");
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Erro ao processar arquivo PDF de currículo.");
-            var problem = new ProblemDetails
-            {
-                Status = StatusCodes.Status500InternalServerError,
-                Title = "Erro interno no processamento",
-                Detail = "Ocorreu um erro interno ao processar o arquivo PDF.",
-                Instance = HttpContext.Request.Path
-            };
-            problem.Extensions["mensagem"] = "Ocorreu um erro interno ao processar o arquivo PDF.";
 
-            return StatusCode(StatusCodes.Status500InternalServerError, problem);
-        }
+        stream.Position = 0;
+        var resultado = _pdfExtractionService.ExtrairDados(stream);
+        return Ok(resultado);
     }
 
     private static bool ValidarMagicBytesPdf(Stream stream)
@@ -222,10 +195,4 @@ public class CandidatosController : ControllerBase
 
         return bytesLidos == PdfMagicBytes.Length && buffer.SequenceEqual(PdfMagicBytes);
     }
-
-    private ObjectResult CriarProblemBadRequest(string mensagem, string detail) =>
-        Problem(
-            detail: detail,
-            statusCode: StatusCodes.Status400BadRequest,
-            title: mensagem);
 }

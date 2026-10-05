@@ -1,5 +1,6 @@
 using System;
 using System.Text.Json.Serialization;
+using Ciee.Curriculos.Api.Common;
 using Ciee.Curriculos.Api.Common.Converters;
 using Ciee.Curriculos.Api.Data;
 using Ciee.Curriculos.Api.DTOs;
@@ -26,7 +27,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IPdfExtractionService, PdfExtractionService>();
 builder.Services.AddScoped<IValidator<CriarCandidatoDto>, CriarCandidatoDtoValidator>();
 
-// Suporte a RFC 7807 (ProblemDetails)
+// Suporte a RFC 7807 (ProblemDetails) e interceptador global de excecoes
 builder.Services.AddProblemDetails(options =>
 {
     options.CustomizeProblemDetails = context =>
@@ -35,6 +36,7 @@ builder.Services.AddProblemDetails(options =>
         context.ProblemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
     };
 });
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 // Controllers e endpoints com serializacao canonica ISO 8601 UTC
 builder.Services.AddControllers()
@@ -68,7 +70,7 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Tratamento de excecoes nao tratadas via ProblemDetails (RFC 7807)
+// Tratamento de excecoes nao tratadas via ProblemDetails (RFC 7807 / RFC 9457)
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
@@ -99,7 +101,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "CIEE Currículos API v1");
-        c.RoutePrefix = string.Empty; // Swagger na raiz da API
+        c.RoutePrefix = string.Empty;
     });
 }
 

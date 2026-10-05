@@ -1,8 +1,10 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using Ciee.Curriculos.Api.Controllers;
 using Ciee.Curriculos.Api.DTOs;
+using Ciee.Curriculos.Api.Exceptions;
 using Ciee.Curriculos.Api.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -25,20 +27,18 @@ public class CandidatosControllerTests
     }
 
     [Fact]
-    public void ExtrairPdf_ArquivoNulo_DeveRetornarBadRequest()
+    public void ExtrairPdf_ArquivoNulo_DeveLancarBusinessException()
     {
         var controller = CriarController();
 
-        var resultado = controller.ExtrairPdf(null);
+        var ex = Assert.Throws<BusinessException>(() => controller.ExtrairPdf(null));
 
-        var badRequest = Assert.IsType<ObjectResult>(resultado);
-        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
-        var problem = Assert.IsType<ProblemDetails>(badRequest.Value);
-        Assert.Contains("Nenhum arquivo enviado", problem.Title);
+        Assert.Equal(StatusCodes.Status400BadRequest, ex.StatusCode);
+        Assert.Contains("Nenhum arquivo enviado", ex.Title);
     }
 
     [Fact]
-    public void ExtrairPdf_ArquivoVazioComZeroBytes_DeveRetornarBadRequest()
+    public void ExtrairPdf_ArquivoVazioComZeroBytes_DeveLancarBusinessException()
     {
         var controller = CriarController();
         var emptyFile = new FormFile(Stream.Null, 0, 0, "arquivo", "curriculo_vazio.pdf")
@@ -47,16 +47,14 @@ public class CandidatosControllerTests
             ContentType = "application/pdf"
         };
 
-        var resultado = controller.ExtrairPdf(emptyFile);
+        var ex = Assert.Throws<BusinessException>(() => controller.ExtrairPdf(emptyFile));
 
-        var badRequest = Assert.IsType<ObjectResult>(resultado);
-        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
-        var problem = Assert.IsType<ProblemDetails>(badRequest.Value);
-        Assert.Contains("Nenhum arquivo enviado", problem.Title);
+        Assert.Equal(StatusCodes.Status400BadRequest, ex.StatusCode);
+        Assert.Contains("Nenhum arquivo enviado", ex.Title);
     }
 
     [Fact]
-    public void ExtrairPdf_ArquivoMaiorQue5MB_DeveRetornarBadRequest()
+    public void ExtrairPdf_ArquivoMaiorQue5MB_DeveLancarBusinessException()
     {
         var controller = CriarController();
         const long tamanhoAcimaDoLimite = (5 * 1024 * 1024) + 1; // 5 MB + 1 byte
@@ -66,12 +64,10 @@ public class CandidatosControllerTests
             ContentType = "application/pdf"
         };
 
-        var resultado = controller.ExtrairPdf(fakeFile);
+        var ex = Assert.Throws<BusinessException>(() => controller.ExtrairPdf(fakeFile));
 
-        var badRequest = Assert.IsType<ObjectResult>(resultado);
-        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
-        var problem = Assert.IsType<ProblemDetails>(badRequest.Value);
-        Assert.Contains("5 MB", problem.Title);
+        Assert.Equal(StatusCodes.Status400BadRequest, ex.StatusCode);
+        Assert.Contains("5 MB", ex.Title);
     }
 
     [Theory]
@@ -79,7 +75,7 @@ public class CandidatosControllerTests
     [InlineData("documento.txt", "text/plain")]
     [InlineData("imagem.png", "image/png")]
     [InlineData("tabela.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
-    public void ExtrairPdf_ExtensaoDivergenteDePdf_DeveRetornarBadRequest(string nomeArquivo, string contentType)
+    public void ExtrairPdf_ExtensaoDivergenteDePdf_DeveLancarBusinessException(string nomeArquivo, string contentType)
     {
         var controller = CriarController();
         var bytes = Encoding.UTF8.GetBytes("Conteúdo qualquer de documento inválido");
@@ -90,19 +86,16 @@ public class CandidatosControllerTests
             ContentType = contentType
         };
 
-        var resultado = controller.ExtrairPdf(file);
+        var ex = Assert.Throws<BusinessException>(() => controller.ExtrairPdf(file));
 
-        var badRequest = Assert.IsType<ObjectResult>(resultado);
-        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
-        var problem = Assert.IsType<ProblemDetails>(badRequest.Value);
-        Assert.Contains("Formato de arquivo inválido", problem.Title);
+        Assert.Equal(StatusCodes.Status400BadRequest, ex.StatusCode);
+        Assert.Contains("Formato de arquivo inválido", ex.Title);
     }
 
     [Fact]
-    public void ExtrairPdf_ConteudoCorrompidoSemMagicBytesPdf_DeveRetornarBadRequest()
+    public void ExtrairPdf_ConteudoCorrompidoSemMagicBytesPdf_DeveLancarBusinessException()
     {
         var controller = CriarController();
-        // Extensão .pdf com tamanho menor que 5 MB, porém sem os bytes binários %PDF-
         var bytesFalsos = Encoding.UTF8.GetBytes("ESTE_CONTEUDO_NAO_E_UM_PDF_VALIDO_BINARIAMENTE");
         using var stream = new MemoryStream(bytesFalsos);
         var file = new FormFile(stream, 0, bytesFalsos.Length, "arquivo", "corrompido.pdf")
@@ -111,12 +104,10 @@ public class CandidatosControllerTests
             ContentType = "application/pdf"
         };
 
-        var resultado = controller.ExtrairPdf(file);
+        var ex = Assert.Throws<BusinessException>(() => controller.ExtrairPdf(file));
 
-        var badRequest = Assert.IsType<ObjectResult>(resultado);
-        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
-        var problem = Assert.IsType<ProblemDetails>(badRequest.Value);
-        Assert.Contains("PDF válido ou está corrompido", problem.Title);
+        Assert.Equal(StatusCodes.Status400BadRequest, ex.StatusCode);
+        Assert.Contains("PDF válido ou está corrompido", ex.Title);
     }
 
     [Fact]
@@ -152,7 +143,6 @@ public class CandidatosControllerTests
         var bytes = File.ReadAllBytes(caminhoRaiz);
         Assert.True(bytes.Length > 0);
 
-        // Verifica magic bytes do PDF salvo fisicamente
         var magicBytes = Encoding.ASCII.GetBytes("%PDF-");
         var magicBuffer = new byte[magicBytes.Length];
         Array.Copy(bytes, 0, magicBuffer, 0, magicBytes.Length);
