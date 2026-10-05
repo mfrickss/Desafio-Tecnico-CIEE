@@ -1,4 +1,4 @@
-﻿import { Component, inject, signal, OnInit, DestroyRef } from '@angular/core';
+import { Component, inject, signal, OnInit, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, AbstractControl } from '@angular/forms';
@@ -376,7 +376,7 @@ export class CadastroComponent implements OnInit {
       error: (err) => {
         this.extraindoPdf.set(false);
         this.teveOrigemPdf.set(false);
-        const msg = err.error?.mensagem || 'Falha na comunicação com o servidor ao ler o arquivo PDF. O cadastro manual continua disponível.';
+        const msg = err.error?.detail || err.error?.title || 'Falha na comunicação com o servidor ao ler o arquivo PDF. O cadastro manual continua disponível.';
         this.mensagemPdf.set(msg);
         this.tipoMensagemPdf.set('aviso');
       }

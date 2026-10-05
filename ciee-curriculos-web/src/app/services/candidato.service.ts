@@ -1,4 +1,4 @@
-﻿import { Injectable, inject } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Candidato, CriarCandidatoDto, ExtracaoPdfResponse } from '../models/candidato.model';
@@ -40,15 +40,6 @@ export class CandidatoService {
 
     const body = error.error as ApiErroValidacaoResponse;
     const listaErros: ErroValidacaoCampo[] = [];
-
-    if (Array.isArray(body.erros) && body.erros.length > 0) {
-      for (const item of body.erros) {
-        if (item.campo && item.erro) {
-          listaErros.push({ campo: item.campo, erro: item.erro });
-        }
-      }
-      return listaErros;
-    }
 
     if (body.errors && typeof body.errors === 'object') {
       for (const [campo, mensagens] of Object.entries(body.errors)) {

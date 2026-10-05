@@ -1,8 +1,9 @@
-﻿import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink, ActivatedRoute } from '@angular/router';
-import { Subject, Subscription, of } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Subject, Subscription, EMPTY } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 import { CandidatoService } from '../../services/candidato.service';
 import { Candidato } from '../../models/candidato.model';
@@ -46,6 +47,8 @@ export class ListagemComponent implements OnInit, OnDestroy {
   candidatos = signal<Candidato[]>([]);
   carregando = signal<boolean>(true);
   erroConexao = signal<boolean>(false);
+  tituloErro = signal<string>('Serviço Indisponível');
+  descricaoErro = signal<string>('Não foi possível conectar ao servidor.');
   alertaSucesso = signal<boolean>(false);
   termoBusca: string = '';
 
@@ -62,10 +65,9 @@ export class ListagemComponent implements OnInit, OnDestroy {
         switchMap((termo) => {
           this.carregando.set(true);
           return this.candidatoService.listar(termo).pipe(
-            catchError(() => {
-              this.erroConexao.set(true);
-              this.carregando.set(false);
-              return of([]);
+            catchError((err: unknown) => {
+              this.tratarFalhaConexao(err);
+              return EMPTY;
             })
           );
         })
@@ -91,11 +93,11 @@ export class ListagemComponent implements OnInit, OnDestroy {
 
   carregar() {
     this.carregando.set(true);
+    this.erroConexao.set(false);
     this.candidatoService.listar(this.termoBusca).pipe(
-      catchError(() => {
-        this.erroConexao.set(true);
-        this.carregando.set(false);
-        return of([]);
+      catchError((err: unknown) => {
+        this.tratarFalhaConexao(err);
+        return EMPTY;
       })
     ).subscribe({
       next: (dados) => {
@@ -104,6 +106,26 @@ export class ListagemComponent implements OnInit, OnDestroy {
         this.carregando.set(false);
       }
     });
+  }
+
+  tratarFalhaConexao(err: unknown) {
+    this.carregando.set(false);
+    this.erroConexao.set(true);
+    this.candidatos.set([]);
+
+    if (err instanceof HttpErrorResponse && err.status === 0) {
+      this.tituloErro.set('Serviço Indisponível');
+      this.descricaoErro.set(
+        'Não foi possível estabelecer conexão com o servidor. ' +
+        'Verifique sua conexão de rede ou tente novamente em instantes.'
+      );
+    } else if (err instanceof HttpErrorResponse && (err.status === 503 || err.status === 502 || err.status === 504)) {
+      this.tituloErro.set('Serviço Temporariamente Indisponível');
+      this.descricaoErro.set('O servidor está temporariamente fora de operação. Tente novamente em instantes.');
+    } else {
+      this.tituloErro.set('Falha na comunicação com o servidor');
+      this.descricaoErro.set('Não foi possível carregar a lista de candidatos devido a uma instabilidade de conexão com o servidor.');
+    }
   }
 
   aoDigitarBusca(termo?: string) {

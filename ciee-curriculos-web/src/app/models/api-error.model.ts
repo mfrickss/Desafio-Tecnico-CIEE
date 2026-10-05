@@ -1,13 +1,14 @@
-﻿export interface ErroValidacaoCampo {
+export interface ErroValidacaoCampo {
   campo: string;
   erro: string;
 }
 
 export interface ApiErroValidacaoResponse {
+  type?: string;
   title?: string;
-  detail?: string;
   status?: number;
-  mensagem?: string;
+  detail?: string;
+  instance?: string;
+  traceId?: string;
   errors?: Record<string, string[]>;
-  erros?: ErroValidacaoCampo[];
 }
