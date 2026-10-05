@@ -1,25 +1,70 @@
-﻿using System.Text;
+﻿using System;
+using System.Collections.Frozen;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
+using Ciee.Curriculos.Api.Common;
 using Ciee.Curriculos.Api.DTOs;
+using Microsoft.Extensions.Logging;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 
 namespace Ciee.Curriculos.Api.Services;
 
-public interface IPdfExtractionService
-{
-    ExtracaoPdfResponseDto ExtrairDados(Stream pdfStream);
-}
-
 public class PdfExtractionService : IPdfExtractionService
 {
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
+
+    private readonly ILogger<PdfExtractionService>? _logger;
+
+    public PdfExtractionService(ILogger<PdfExtractionService>? logger = null)
+    {
+        _logger = logger;
+    }
+
     private static readonly Regex EmailRegex = new(
         @"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        RegexOptions.Compiled | RegexOptions.IgnoreCase,
+        RegexTimeout);
 
     private static readonly Regex TelefoneRegex = new(
         @"(?:(?:\+|00)?(55)\s*)?(?:\(?([1-9][0-9])\)?\s*)?(?:((?:9\d|[2-9])\d{3})\s*[-.]?\s*(\d{4}))",
-        RegexOptions.Compiled);
+        RegexOptions.Compiled,
+        RegexTimeout);
+
+    private static readonly Regex InicioResumoRegex = new(
+        @"^(?:resumo(?:\s+profissional)?|perfil(?:\s+profissional)?|sobre\s+mim|sobre|apresenta[çc][ãa]o|s[íi]ntese(?:\s+profissional)?|sum[áa]rio(?:\s+de\s+qualifica[çc][õo]es)?|mini\s+bio)\b(?:\s*[:\-])?",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase,
+        RegexTimeout);
+
+    private static readonly FrozenSet<string> SecoesFinaisSemAcento = new[]
+    {
+        "competencias", "habilidades", "habilidades tecnicas", "skills", "principais competencias", "tecnologias",
+        "experiencia", "experiencias", "experiencia profissional", "historico profissional", "atuacao profissional",
+        "formacao", "formacao academica", "educacao", "escolaridade", "graduacao",
+        "projetos", "projetos relevantes", "principais projetos", "cursos", "certificacoes", "certificados", "licencas",
+        "idiomas", "linguas", "contato", "contatos", "informacoes de contato", "informacoes adicionais", "atividades complementares"
+    }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
+
+    private static readonly FrozenSet<string> CabecalhosSecaoIgnoradosSemAcento = new[]
+    {
+        "curriculum vitae",
+        "curriculo vitae",
+        "curriculo profissional",
+        "dados pessoais",
+        "informacoes pessoais",
+        "dados cadastrais",
+        "informacoes de contato",
+        "dados de contato",
+        "informacao de contato",
+        "historico profissional",
+        "experiencia profissional",
+        "resumo profissional",
+        "perfil profissional",
+        "objetivo profissional"
+    }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
     public ExtracaoPdfResponseDto ExtrairDados(Stream pdfStream)
     {
@@ -33,12 +78,11 @@ public class PdfExtractionService : IPdfExtractionService
                 {
                     return new ExtracaoPdfResponseDto(
                         null, null, null, null, null, string.Empty, false,
-                        "O arquivo PDF esta vazio ou nao possui paginas legiveis.");
+                        "O arquivo PDF está vazio ou não possui páginas legíveis.");
                 }
 
                 foreach (var page in document.GetPages())
                 {
-                    // Agrupa palavras pela coordenada Y vertical para formar linhas reais
                     var palavras = page.GetWords().ToList();
                     if (palavras.Count > 0)
                     {
@@ -61,16 +105,20 @@ public class PdfExtractionService : IPdfExtractionService
             {
                 return new ExtracaoPdfResponseDto(
                     null, null, null, null, null, string.Empty, false,
-                    "Nao foi possivel extrair texto do PDF. O documento pode ser uma imagem escaneada.");
+                    "Não foi possível extrair texto do PDF. O documento pode ser uma imagem escaneada.");
             }
 
-            var textoCompleto = string.Join(Environment.NewLine, linhasExtraidas);
+            for (var i = 0; i < linhasExtraidas.Count; i++)
+            {
+                linhasExtraidas[i] = NormalizarTextoPdf(linhasExtraidas[i]);
+            }
+            var textoCompleto = NormalizarTextoPdf(string.Join(Environment.NewLine, linhasExtraidas));
 
             var emailEncontrado = ExtrairEmail(textoCompleto);
-            var telefoneEncontrado = ExtrairTelefone(textoCompleto);
+            var telefoneEncontrado = ExtrairTelefone(linhasExtraidas, textoCompleto);
             var nomeEncontrado = ExtrairNome(linhasExtraidas);
-            var cargoSugerido = ExtrairCargo(textoCompleto);
-            var resumoSugerido = ExtrairResumo(textoCompleto);
+            var resumoSugerido = ExtrairResumo(linhasExtraidas, textoCompleto);
+            var cargoSugerido = ExtrairCargo(textoCompleto, linhasExtraidas, nomeEncontrado, resumoSugerido);
 
             return new ExtracaoPdfResponseDto(
                 NomeCompleto: nomeEncontrado,
@@ -80,15 +128,109 @@ public class PdfExtractionService : IPdfExtractionService
                 ResumoProfissional: resumoSugerido,
                 TextoBruto: textoCompleto,
                 Sucesso: true,
-                Mensagem: "Dados extraidos do curriculo com sucesso.");
+                Mensagem: "Dados extraídos do currículo com sucesso.");
         }
         catch (Exception ex)
         {
+            _logger?.LogError(ex, "Falha durante o processamento do arquivo PDF de currículo: {MensagemInterna}", ex.Message);
             return new ExtracaoPdfResponseDto(
-                null, null, null, null, null, string.Empty, false,
-                $"Falha ao processar o arquivo PDF: {ex.Message}");
+                NomeCompleto: null,
+                Email: null,
+                Telefone: null,
+                CargoInteresse: null,
+                ResumoProfissional: null,
+                TextoBruto: string.Empty,
+                Sucesso: false,
+                Mensagem: "Não foi possível processar o arquivo PDF. Verifique se o documento não está corrompido ou protegido por senha.");
         }
     }
+
+    public static string NormalizarTextoPdf(string texto)
+    {
+        if (string.IsNullOrEmpty(texto)) return string.Empty;
+
+        texto = texto.Replace("\0", string.Empty);
+        if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
+
+        // Normaliza cedilhas
+        texto = texto.Replace("\u00B8c", "ç").Replace("\u00B8C", "Ç")
+                     .Replace("c\u00B8", "ç").Replace("C\u00B8", "Ç");
+
+        // Tratamento de glifos onde o diacrítico agudo foi extraído fora de ordem em relação à vogal correspondente
+        texto = Regex.Replace(texto, @"\bJu[´'\u02CA\u0301]nior\b", "Júnior", RegexOptions.IgnoreCase, RegexTimeout);
+        texto = Regex.Replace(texto, @"\bJun[´'\u02CA\u0301]ior\b", "Júnior", RegexOptions.IgnoreCase, RegexTimeout);
+
+        // "Estagiar´io" -> "Estagiário"
+        texto = Regex.Replace(texto, @"\bEstagiar[´'\u02CA\u0301]+io\b", "Estagiário", RegexOptions.IgnoreCase, RegexTimeout);
+        texto = Regex.Replace(texto, @"\bestagiar[´'\u02CA\u0301]+io\b", "estagiário", RegexOptions.IgnoreCase, RegexTimeout);
+
+        // "jurıd´icos" / "jurid´icos" -> "jurídicos"
+        texto = Regex.Replace(texto, @"\bjur[\u0131i]d[´'\u02CA\u0301]+icos\b", "jurídicos", RegexOptions.IgnoreCase, RegexTimeout);
+
+        // "elegıv´eis" / "elegiv´eis" -> "elegíveis"
+        texto = Regex.Replace(texto, @"\beleg[\u0131i]v[´'\u02CA\u0301]+eis\b", "elegíveis", RegexOptions.IgnoreCase, RegexTimeout);
+
+        // Mapeamento específico para a letra "i" e dotless i ("\u0131") com acento agudo real
+        texto = Regex.Replace(texto, @"(?:\u0131|i)\s*[\u00B4\u02CA\u0301]", "í", RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"[\u00B4\u02CA\u0301]\s*(?:\u0131|i)", "í", RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"(?:\u0130|I)\s*[\u00B4\u02CA\u0301]", "Í", RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"[\u00B4\u02CA\u0301]\s*(?:\u0130|I)", "Í", RegexOptions.None, RegexTimeout);
+
+        // Proteger apóstrofos em nomes próprios como Sant'Anna, D'Angelo, O'Connor
+        const string tokenApostrofo = "___APOSTROFE_PROTEGIDO___";
+        texto = Regex.Replace(texto, @"(?<=[a-zA-Z])['’](?=[a-zA-Z])", tokenApostrofo, RegexOptions.None, RegexTimeout);
+
+        // Diacríticos agudos reais (\u00B4, \u02CA, \u0301) antes ou depois da vogal
+        texto = Regex.Replace(texto, @"[\u00B4\u02CA\u0301]\s*([aeouyAEOUY])", m => SubstituirAgudo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"([aeouyAEOUY])\s*[\u00B4\u02CA\u0301]", m => SubstituirAgudo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+
+        // Apóstrofo solto que funciona como acento agudo apenas se colado a vogais e sem letras nos dois lados
+        texto = Regex.Replace(texto, @"(?<![a-zA-Z])['’]\s*([aeiouyAEIOUY])", m => SubstituirAgudo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"([aeiouyAEIOUY])\s*['’](?![a-zA-Z])", m => SubstituirAgudo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+
+        // Restaura o apóstrofo protegido
+        texto = texto.Replace(tokenApostrofo, "'");
+
+        // Converte dotless i remanescente sem acento para i
+        texto = texto.Replace("\u0131", "i");
+        texto = texto.Replace("\u0130", "I");
+
+        // Mapeamento de til, circunflexo e crase
+        texto = Regex.Replace(texto, @"[\u02DC~\u0303]\s*([aoAO])", m => SubstituirTil(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"([aoAO])\s*[\u02DC~\u0303]", m => SubstituirTil(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+
+        texto = Regex.Replace(texto, @"[\u02C6\^\u0302]\s*([aeoAEO])", m => SubstituirCircunflexo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"([aeoAEO])\s*[\u02C6\^\u0302]", m => SubstituirCircunflexo(m.Groups[1].Value), RegexOptions.None, RegexTimeout);
+
+        texto = Regex.Replace(texto, @"[\u0060\u0300]\s*([aA])", m => m.Groups[1].Value == "a" ? "à" : "À", RegexOptions.None, RegexTimeout);
+        texto = Regex.Replace(texto, @"([aA])\s*[\u0060\u0300]", m => m.Groups[1].Value == "a" ? "à" : "À", RegexOptions.None, RegexTimeout);
+
+        var normalizado = texto.Normalize(NormalizationForm.FormC);
+        normalizado = Regex.Replace(normalizado, @"[\u0300-\u036F]", string.Empty, RegexOptions.None, RegexTimeout);
+        normalizado = Regex.Replace(normalizado, @"[ \t]+", " ", RegexOptions.None, RegexTimeout);
+
+        return normalizado.Trim();
+    }
+
+    private static string SubstituirAgudo(string v) => v switch
+    {
+        "a" => "á", "e" => "é", "i" => "í", "o" => "ó", "u" => "ú",
+        "A" => "Á", "E" => "É", "I" => "Í", "O" => "Ó", "U" => "Ú",
+        _ => v
+    };
+
+    private static string SubstituirTil(string v) => v switch
+    {
+        "a" => "ã", "o" => "õ", "A" => "Ã", "O" => "Õ",
+        _ => v
+    };
+
+    private static string SubstituirCircunflexo(string v) => v switch
+    {
+        "a" => "â", "e" => "ê", "o" => "ô",
+        "A" => "Â", "E" => "Ê", "O" => "Ô",
+        _ => v
+    };
 
     private static string? ExtrairEmail(string texto)
     {
@@ -96,33 +238,50 @@ public class PdfExtractionService : IPdfExtractionService
         return match.Success ? match.Value.Trim() : null;
     }
 
-    private static string? ExtrairTelefone(string texto)
+    private static string? ExtrairTelefone(IReadOnlyList<string> linhas, string textoCompleto)
     {
-        var match = TelefoneRegex.Match(texto);
-        if (!match.Success) return null;
-
-        var raw = match.Value.Trim();
-        var apenasDigitos = Regex.Replace(raw, @"\D", "");
-
-        if (apenasDigitos.Length >= 10 && apenasDigitos.Length <= 11)
+        foreach (var linha in linhas)
         {
-            var ddd = apenasDigitos.Substring(0, 2);
-            var numero = apenasDigitos.Substring(2);
-            if (numero.Length == 9)
+            if (TelefoneHelper.IntervaloAnosRegex.IsMatch(linha))
             {
-                return $"({ddd}) {numero.Substring(0, 5)}-{numero.Substring(5)}";
+                continue;
             }
-            return $"({ddd}) {numero.Substring(0, 4)}-{numero.Substring(4)}";
+
+            var matchLinha = TelefoneRegex.Match(linha);
+            if (matchLinha.Success)
+            {
+                var formatado = TelefoneHelper.FormatarTelefoneBrasil(matchLinha.Value);
+                if (!string.IsNullOrWhiteSpace(formatado) && !TelefoneHelper.IntervaloAnosRegex.IsMatch(formatado))
+                {
+                    return formatado;
+                }
+            }
         }
 
-        return raw;
+        var matches = TelefoneRegex.Matches(textoCompleto);
+        foreach (Match match in matches)
+        {
+            var raw = match.Value.Trim();
+            if (TelefoneHelper.IntervaloAnosRegex.IsMatch(raw))
+            {
+                continue;
+            }
+
+            var formatado = TelefoneHelper.FormatarTelefoneBrasil(raw);
+            if (!string.IsNullOrWhiteSpace(formatado) && !TelefoneHelper.IntervaloAnosRegex.IsMatch(formatado))
+            {
+                return formatado;
+            }
+        }
+
+        return null;
     }
 
     private static string? ExtrairNome(IEnumerable<string> linhas)
     {
         var palavrasIgnoradas = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "curriculo", "curriculum", "vitae", "resume", "cv", "dados", "contato", "telefone",
+            "curriculo", "currículo", "curriculum", "vitae", "resume", "cv", "dados", "contato", "telefone",
             "email", "endereço", "endereco", "perfil", "sobre", "objetivo", "formação", "formacao"
         };
 
@@ -130,7 +289,18 @@ public class PdfExtractionService : IPdfExtractionService
         {
             var linhaLimpa = linha.Trim();
             if (linhaLimpa.Length < 3) continue;
+
+            // 1. Rejeição imediata de cabeçalhos de seção normalizados sem acento
+            var linhaSemAcento = CargoParsingHelper.RemoverAcentos(linhaLimpa)
+                .Trim(" :-\u2013\u2014|\u2022*;".ToCharArray())
+                .ToLowerInvariant();
+            if (CabecalhosSecaoIgnoradosSemAcento.Contains(linhaSemAcento))
+            {
+                continue;
+            }
+
             if (palavrasIgnoradas.Contains(linhaLimpa)) continue;
+            
             if (EmailRegex.IsMatch(linhaLimpa)) continue;
             if (TelefoneRegex.IsMatch(linhaLimpa)) continue;
 
@@ -152,32 +322,191 @@ public class PdfExtractionService : IPdfExtractionService
         return null;
     }
 
-    private static string? ExtrairCargo(string texto)
+    private static string? ExtrairCargo(
+        string textoCompleto,
+        IReadOnlyList<string> linhas,
+        string? nomeCompleto,
+        string? resumoProfissional)
     {
-        var regexCargo = new Regex(@"(?:cargo|objetivo|interesse|posicao|vaga|funcao)[\s:]+([^\r\n]+)",
-            RegexOptions.IgnoreCase);
+        var cargoExplicito = ExtrairCargoExplicito(textoCompleto);
+        if (!string.IsNullOrWhiteSpace(cargoExplicito))
+        {
+            return cargoExplicito;
+        }
+
+        var cargoSubtitulo = ExtrairCargoDeSubtitulo(linhas, nomeCompleto);
+        if (!string.IsNullOrWhiteSpace(cargoSubtitulo))
+        {
+            return cargoSubtitulo;
+        }
+
+        return InferirCargoDoResumo(resumoProfissional);
+    }
+
+    private static string? ExtrairCargoExplicito(string texto)
+    {
+        var regexCargo = new Regex(
+        @"(?:cargo(?:\s+pretendido|\s+desejado|\s+de\s+interesse)?|objetivo(?:\s+profissional)?|posi[çc][ãa]o(?:\s+desejada)?|vaga(?:\s+desejada|\s+pretendida|\s+de\s+interesse)?|fun[çc][ãa]o(?:\s+pretendida)?|(?:[áa]rea|setor)\s+de\s+interesse)[\s:]+([^\r\n]+)",
+        RegexOptions.IgnoreCase,
+        RegexTimeout);
 
         var match = regexCargo.Match(texto);
         if (match.Success && match.Groups[1].Value.Length > 2)
         {
-            var cargo = match.Groups[1].Value.Trim();
-            return cargo.Length > 100 ? cargo.Substring(0, 100) : cargo;
+            var cargo = CargoParsingHelper.LimparEDelimitarCargo(match.Groups[1].Value);
+            if (!string.IsNullOrWhiteSpace(cargo))
+            {
+                return cargo;
+            }
         }
 
         return null;
     }
 
-    private static string? ExtrairResumo(string texto)
+    private static string? ExtrairCargoDeSubtitulo(IReadOnlyList<string> linhas, string? nomeCompleto)
     {
-        var regexResumo = new Regex(@"(?:resumo|perfil profissional|sobre mim|apresentacao|sintese)[\s:]+([^\r\n]{20,500})",
-            RegexOptions.IgnoreCase);
+        if (string.IsNullOrWhiteSpace(nomeCompleto)) return null;
 
-        var match = regexResumo.Match(texto);
-        if (match.Success)
+        var indiceNome = -1;
+        for (var i = 0; i < linhas.Count; i++)
         {
-            return match.Groups[1].Value.Trim();
+            if (linhas[i].Trim().Equals(nomeCompleto.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                indiceNome = i;
+                break;
+            }
+        }
+
+        if (indiceNome < 0) return null;
+
+        for (var i = indiceNome + 1; i < Math.Min(linhas.Count, indiceNome + 4); i++)
+        {
+            var linha = linhas[i].Trim();
+            if (string.IsNullOrWhiteSpace(linha)) continue;
+            if (EmailRegex.IsMatch(linha) || TelefoneRegex.IsMatch(linha)) continue;
+            if (linha.Contains('@') || linha.StartsWith("http", StringComparison.OrdinalIgnoreCase) || linha.StartsWith("www.", StringComparison.OrdinalIgnoreCase)) continue;
+            if (InicioResumoRegex.IsMatch(linha)) break;
+
+            if (linha.Length <= 100 && CargoParsingHelper.NucleoProfissionalRegex.IsMatch(linha))
+            {
+                linha = RemoverUrlsDaLinha(linha);
+
+                var cargo = CargoParsingHelper.LimparEDelimitarCargo(linha);
+                if (!string.IsNullOrWhiteSpace(cargo) && cargo.Length >= 3)
+                {
+                    return cargo;
+                }
+            }
         }
 
         return null;
+    }
+
+    private static string RemoverUrlsDaLinha(string linha)
+    {
+        return Regex.Replace(linha, @"https?:\/\/\S+|www\.\S+", "", RegexOptions.IgnoreCase, RegexTimeout).Trim();
+    }
+
+    private static string? InferirCargoDoResumo(string? resumo)
+    {
+        if (string.IsNullOrWhiteSpace(resumo)) return null;
+
+        var primeiraSentenca = resumo.Split(new[] { '.', '\n', '\r', ';', '|', '!' }, StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault()?
+            .Trim();
+
+        if (string.IsNullOrWhiteSpace(primeiraSentenca)) return null;
+
+        var matchNucleo = CargoParsingHelper.NucleoProfissionalRegex.Match(primeiraSentenca);
+        if (matchNucleo.Success)
+        {
+            var trecho = primeiraSentenca.Substring(matchNucleo.Index).Trim();
+            var cargo = CargoParsingHelper.LimparEDelimitarCargo(trecho);
+            if (!string.IsNullOrWhiteSpace(cargo) && cargo.Length >= 3)
+            {
+                return cargo;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ExtrairResumo(IReadOnlyList<string> linhas, string textoCompleto)
+    {
+        var partesResumo = new List<string>();
+        var capturando = false;
+
+        foreach (var linha in linhas)
+        {
+            var linhaTrim = linha.Trim();
+            if (string.IsNullOrWhiteSpace(linhaTrim)) continue;
+
+            if (!capturando)
+            {
+                var match = InicioResumoRegex.Match(linhaTrim);
+                if (match.Success)
+                {
+                    capturando = true;
+                    var restoLinha = linhaTrim.Substring(match.Length).Trim(' ', ':', '-');
+                    if (!string.IsNullOrWhiteSpace(restoLinha))
+                    {
+                        partesResumo.Add(restoLinha);
+                    }
+                }
+            }
+            else
+            {
+                if (EhCabecalhoDeSecaoFinal(linhaTrim))
+                {
+                    break;
+                }
+
+                partesResumo.Add(linhaTrim);
+            }
+        }
+
+        if (partesResumo.Count > 0)
+        {
+            var texto = string.Join(" ", partesResumo).Trim();
+            texto = Regex.Replace(texto, @"\s+", " ", RegexOptions.None, RegexTimeout);
+            return texto.Length > 2000 ? texto.Substring(0, 2000).Trim() : texto;
+        }
+
+        var regexResumo = new Regex(@"(?:resumo(?:\s+profissional)?|perfil(?:\s+profissional)?|sobre\s+mim|apresenta[çc][ãa]o|s[íi]ntese)[\s:]+([^\r\n]{30,2000})",
+            RegexOptions.IgnoreCase,
+            RegexTimeout);
+
+        var matchFallback = regexResumo.Match(textoCompleto);
+        if (matchFallback.Success)
+        {
+            var fallback = matchFallback.Groups[1].Value.Trim();
+            fallback = Regex.Replace(fallback, @"\s+", " ", RegexOptions.None, RegexTimeout);
+            return fallback.Length > 2000 ? fallback.Substring(0, 2000).Trim() : fallback;
+        }
+
+        return null;
+    }
+
+    private static bool EhCabecalhoDeSecaoFinal(string linha)
+    {
+        var linhaLimpa = Regex.Replace(linha.ToLowerInvariant(), @"[:\-_|•*]", "", RegexOptions.None, RegexTimeout).Trim();
+        if (string.IsNullOrWhiteSpace(linhaLimpa)) return false;
+
+        var linhaSemAcento = CargoParsingHelper.RemoverAcentos(linhaLimpa).Trim();
+        if (SecoesFinaisSemAcento.Contains(linhaSemAcento)) return true;
+
+        if (linhaSemAcento.Length <= 50)
+        {
+            foreach (var secao in SecoesFinaisSemAcento)
+            {
+                if (linhaSemAcento.StartsWith(secao, StringComparison.OrdinalIgnoreCase) &&
+                    (linhaSemAcento.Length == secao.Length || char.IsWhiteSpace(linhaSemAcento[secao.Length]) || linhaSemAcento[secao.Length] == '('))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

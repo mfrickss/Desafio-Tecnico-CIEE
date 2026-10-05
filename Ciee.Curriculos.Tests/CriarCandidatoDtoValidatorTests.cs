@@ -1,4 +1,4 @@
-﻿using Ciee.Curriculos.Api.DTOs;
+using Ciee.Curriculos.Api.DTOs;
 using Ciee.Curriculos.Api.Validators;
 using Xunit;
 
@@ -27,6 +27,25 @@ public class CriarCandidatoDtoValidatorTests
     }
 
     [Theory]
+    [InlineData("candidato@ciee.org.br")]
+    [InlineData("usuario.sobrenome@dominio.com")]
+    [InlineData("dev_test+tag@sub.empresa.io")]
+    public void Validar_EmailCorporativoValidoComTLD_DevePassar(string emailValido)
+    {
+        var dto = new CriarCandidatoDto(
+            NomeCompleto: "João Silva",
+            Email: emailValido,
+            Telefone: null,
+            CargoInteresse: null,
+            ResumoProfissional: null
+        );
+
+        var result = _validator.Validate(dto);
+
+        Assert.True(result.IsValid);
+    }
+
+    [Theory]
     [InlineData("")]
     [InlineData(" ")]
     [InlineData("Ab")]
@@ -51,10 +70,13 @@ public class CriarCandidatoDtoValidatorTests
     [InlineData("email-invalido")]
     [InlineData("usuario@")]
     [InlineData("@dominio.com")]
-    public void Validar_EmailInvalido_DeveFalharComErroEspecifico(string emailInvalido)
+    [InlineData("usuario@dominio")]
+    [InlineData("usuario@dominio.c")]
+    [InlineData("usuario@dominio..com")]
+    public void Validar_EmailInvalidoOuSemTLD_DeveFalharComErroEspecifico(string emailInvalido)
     {
         var dto = new CriarCandidatoDto(
-            NomeCompleto: "Joao Souza",
+            NomeCompleto: "João Souza",
             Email: emailInvalido,
             Telefone: null,
             CargoInteresse: null,
@@ -65,6 +87,22 @@ public class CriarCandidatoDtoValidatorTests
 
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, e => e.PropertyName == nameof(CriarCandidatoDto.Email));
+    }
+
+    [Fact]
+    public void Validar_MensagensDeValidacao_DevemEstarAcentuadasCorretamente()
+    {
+        var dto = new CriarCandidatoDto(
+            NomeCompleto: "",
+            Email: "",
+            Telefone: null,
+            CargoInteresse: null,
+            ResumoProfissional: null
+        );
+
+        var result = _validator.Validate(dto);
+
+        Assert.Contains(result.Errors, e => e.ErrorMessage.Contains("é obrigatório"));
     }
 
     [Fact]

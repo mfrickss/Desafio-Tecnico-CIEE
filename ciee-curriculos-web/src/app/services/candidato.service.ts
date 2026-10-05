@@ -1,7 +1,8 @@
-﻿import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Candidato, CriarCandidatoDto, ExtracaoPdfResponse } from '../models/candidato.model';
+import { ErroValidacaoCampo, ApiErroValidacaoResponse } from '../models/api-error.model';
 
 @Injectable({
   providedIn: 'root'
@@ -30,5 +31,26 @@ export class CandidatoService {
     const formData = new FormData();
     formData.append('arquivo', arquivo);
     return this.http.post<ExtracaoPdfResponse>(this.apiUrl + '/extrair-pdf', formData);
+  }
+
+  extrairErrosValidacao(error: unknown): ErroValidacaoCampo[] {
+    if (!(error instanceof HttpErrorResponse) || !error.error) {
+      return [];
+    }
+
+    const body = error.error as ApiErroValidacaoResponse;
+    const listaErros: ErroValidacaoCampo[] = [];
+
+    if (body.errors && typeof body.errors === 'object') {
+      for (const [campo, mensagens] of Object.entries(body.errors)) {
+        if (Array.isArray(mensagens)) {
+          for (const msg of mensagens) {
+            listaErros.push({ campo, erro: msg });
+          }
+        }
+      }
+    }
+
+    return listaErros;
   }
 }

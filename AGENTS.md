@@ -1,6 +1,8 @@
-# Project: C# .NET 8 + Angular 18 + MySQL / SQL Server
+# AGENTS.md instructions for C:\Users\ricar\Desafio-Tecnico-CIEE
 
-Fullstack application with ASP.NET Core Web API (.NET 8), Angular 18 (Standalone Components), and relational database with Entity Framework Core (Pomelo MySQL / Microsoft SQL Server).
+# Project: C# .NET 8 + Angular 22 + SQL Server 2022
+
+Fullstack application with ASP.NET Core Web API (.NET 8), Angular 22 (Standalone Components), and relational database with Entity Framework Core (SQL Server 2022 with EF Core 8).
 
 ## Role
 
@@ -9,37 +11,40 @@ You are a senior fullstack .NET and Angular developer. Always apply idiomatic .N
 ## Code standards
 
 ### Backend (.NET 8 Web API)
-- Never instantiate services or DbContext directly (no 
-ew ApplicationDbContext(), no 
-ew CandidateService()) — always use constructor injection via native DI (IServiceCollection).
-- Use proper DI lifetimes:
-  - Repositories and DbContext: AddScoped
-  - Stateless processing and calculation engines: AddTransient or AddScoped
-  - Caches and single-instance cross-cutting clients: AddSingleton
-- Layered layout:
-  - src/Backend/Controllers/ — thin controllers with [ApiController] and route attributes
-  - src/Backend/Services/ — business logic interfaces and implementations
-  - src/Backend/Data/ — DbContext, entity configurations (IEntityTypeConfiguration<T>), and migrations
-  - src/Backend/DTOs/ — request and response data contracts, validated using FluentValidation or Data Annotations
-  - src/Backend/Common/ — cross-cutting middleware, filters, and global error handling
-- Enforce async/await from controller to database (sync Task<IActionResult>, SaveChangesAsync, ToListAsync).
-- Prevent query memory bloat: use .AsNoTracking() for read-only queries.
 
-### Frontend (Angular 18)
-- Always use **Standalone Components** (standalone: true), eliminating legacy NgModule.
-- Prefer Angular Signals (signal, computed, ffect) and reactive state management over redundant subscriptions.
-- Manage forms strictly with **Reactive Forms** (FormGroup, FormControl, Validators).
-- All backend communication must be encapsulated in injectable services (@Injectable({ providedIn: 'root' })) using HttpClient. Never call etch() directly in components.
+- Never instantiate services or DbContext directly (no `new ApplicationDbContext()`, no `new CandidateService()`) — always use constructor injection via native DI (`IServiceCollection`).
+- Use proper DI lifetimes:
+  - Repositories and DbContext: `AddScoped`
+  - Stateless processing and calculation engines: `AddTransient` or `AddScoped`
+  - Caches and single-instance cross-cutting clients: `AddSingleton`
 - Layered layout:
-  - src/app/features/<feature-name>/ — smart components and view logic
-  - src/app/core/ — singleton services, auth/rate-limit interceptors, global models
-  - src/app/shared/ — reusable dumb UI components, custom pipes, and directives
+  - `Ciee.Curriculos.Api/Controllers/` — thin controllers with `[ApiController]` and route attributes
+  - `Ciee.Curriculos.Api/Services/` — business logic interfaces and implementations
+  - `Ciee.Curriculos.Api/Data/` — DbContext, entity configurations (`IEntityTypeConfiguration<T>`), and migrations
+  - `Ciee.Curriculos.Api/DTOs/` — request and response data contracts, validated using FluentValidation or Data Annotations
+  - `Ciee.Curriculos.Api/Common/` — cross-cutting middleware, filters, and global error handling
+- Enforce async/await from controller to database (`async Task<IActionResult>`, `SaveChangesAsync`, `ToListAsync`).
+- Prevent query memory bloat: use `.AsNoTracking()` for read-only queries.
+
+### Frontend (Angular 22)
+
+- Always use **Standalone Components** (`standalone: true`), eliminating legacy `NgModule`.
+- Prefer Angular Signals (`signal`, `computed`, `effect`) and reactive state management over redundant subscriptions.
+- Manage forms strictly with **Reactive Forms** (`FormGroup`, `FormControl`, `Validators`).
+- All backend communication must be encapsulated in injectable services (`@Injectable({ providedIn: 'root' })`) using `HttpClient`. Never call `fetch()` directly in components.
+- Layered layout:
+  - `ciee-curriculos-web/src/app/pages/` — smart components and view logic (Cadastro, Listagem, Detalhes)
+  - `ciee-curriculos-web/src/app/services/` — injectable services communicating with the Web API
+  - `ciee-curriculos-web/src/app/models/` — TypeScript interfaces and request/response contracts
 
 ### Database & Migrations
-- Define entity mappings using Fluent API in OnModelCreating or separate configuration classes rather than polluting domain classes with data-layer attributes.
-- Use EF Core CLI for migrations:
-  - dotnet ef migrations add <MigrationName> --project src/Backend
-  - dotnet ef database update --project src/Backend
+
+- Define entity mappings using Fluent API in `OnModelCreating` or separate configuration classes rather than polluting domain classes with data-layer attributes.
+- Database target is exclusively Microsoft SQL Server 2022 (via Docker Compose container).
+- Use EF Core CLI for migrations and idempotent SQL generation:
+  - `dotnet ef migrations add <MigrationName> --project Ciee.Curriculos.Api`
+  - `dotnet ef database update --project Ciee.Curriculos.Api`
+  - `dotnet ef migrations script --idempotent --project Ciee.Curriculos.Api`
 
 ## Skills & Agent Triggers
 

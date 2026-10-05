@@ -1,201 +1,370 @@
-﻿<div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-  <!-- Cabecalho da Pagina -->
-  <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-    <div>
-      <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Cadastro de Candidato</h1>
-      <p class="mt-1 text-sm text-slate-500">
-        Cadastre um candidato manualmente ou anexe um currículo em PDF para preenchimento automático.
-      </p>
-    </div>
-    <a routerLink="/" class="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-800 transition">
-      &larr; Voltar para listagem
-    </a>
+﻿<div class="max-w-3xl mx-auto py-8 px-4 sm:px-6 lg:px-8 font-sans transition-all duration-300 ease-out">
+  <!-- Cabeçalho da Página -->
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-ciee-dark tracking-tight">Novo Candidato</h1>
+    <p class="text-sm text-slate-500 mt-0.5">
+      Preencha as informações do candidato ou envie um currículo em PDF para assistência automatizada.
+    </p>
   </div>
 
-  <!-- Area de Upload de PDF (Opcional) -->
-  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8 transition hover:border-slate-300">
-    <div class="flex items-center justify-between mb-4">
-      <div class="flex items-center space-x-3">
-        <div class="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-          </svg>
-        </div>
-        <div>
-          <h2 class="text-lg font-semibold text-slate-800">Preenchimento Inteligente via PDF</h2>
-          <p class="text-xs text-slate-500">Opcional. Formato PDF de até 5 MB.</p>
-        </div>
+  <!-- Componente Interno CIEE: Card de Upload de PDF -->
+  <ciee-card class="mb-6">
+    <div cieeCardHeader class="flex flex-row items-center justify-between space-y-0 pb-3">
+      <div>
+        <h2 cieeCardTitle class="text-base">Preenchimento via PDF</h2>
+        <p cieeCardDescription>Formatos aceitos: PDF de até 5 MB.</p>
       </div>
       @if (arquivoSelecionado()) {
-        <button type="button" (click)="removerArquivo()" class="text-xs text-rose-600 hover:underline">
+        <button
+          type="button"
+          (click)="removerArquivo()"
+          cieeBtn
+          variant="link"
+          class="text-xs text-rose-600 focus-visible:ring-rose-500"
+          aria-label="Remover currículo anexado"
+        >
           Remover arquivo
         </button>
       }
     </div>
 
-    <!-- Area de Drop/Clique -->
-    <div 
-      (dragover)="aoArrastarSobre($event)" 
-      (dragleave)="aoSairArrasto($event)" 
-      (drop)="aoSoltarArquivo($event)"
-      (click)="fileInput.click()"
-      [class.border-indigo-500]="estaArrastando()"
-      [class.bg-indigo-50]="estaArrastando()"
-      class="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-400 hover:bg-slate-50 transition">
-      
-      <input 
-        #fileInput 
-        type="file" 
-        accept="application/pdf,.pdf" 
-        class="hidden" 
-        (click)="$event.stopPropagation()"
-        (change)="aoSelecionarArquivo($event)" 
-      />
+    <div cieeCardContent class="pt-4">
+      <div
+        role="region"
+        aria-label="Zona de upload de currículo em PDF. Arraste e solte seu arquivo aqui ou use o seletor."
+        (dragenter)="aoEntrarArrasto($event)"
+        (dragover)="aoArrastarSobre($event)"
+        (dragleave)="aoSairArrasto($event)"
+        (drop)="aoSoltarArquivo($event)"
+        [class.border-ciee-navy]="estaArrastando()"
+        [class.bg-ciee-soft]="estaArrastando()"
+        class="border border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-ciee-navy hover:bg-slate-50/50 transition"
+      >
+        <input
+          #fileInput
+          id="input-curriculo-pdf"
+          type="file"
+          accept="application/pdf,.pdf"
+          class="hidden"
+          aria-hidden="true"
+          tabindex="-1"
+          (click)="pararPropagacao($event)"
+          (change)="aoSelecionarArquivo($event)"
+        />
 
-      @if (extraindoPdf()) {
-        <div class="flex flex-col items-center justify-center py-4">
-          <div class="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-3"></div>
-          <p class="text-sm font-medium text-slate-700">Lendo e extraindo dados do currículo...</p>
-          <p class="text-xs text-slate-400 mt-1">Identificando nome, contatos e informações chave.</p>
-        </div>
-      } @else if (arquivoSelecionado(); as arq) {
-        <div class="flex flex-col items-center py-2">
-          <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 mb-2">
-            Arquivo Carregado
-          </span>
-          <p class="text-sm font-semibold text-slate-800">{{ arq.name }}</p>
-          <p class="text-xs text-slate-500">{{ (arq.size / 1024 / 1024).toFixed(2) }} MB</p>
-          <p class="text-xs text-indigo-600 mt-2">Clique ou arraste outro PDF para substituir</p>
-        </div>
-      } @else {
-        <div class="py-2">
-          <svg class="mx-auto h-10 w-10 text-slate-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          <p class="text-sm text-slate-600 font-medium">
-            Clique para selecionar ou arraste o arquivo PDF aqui
-          </p>
-          <p class="text-xs text-slate-400 mt-1">
-            A extração preencherá os campos abaixo automaticamente.
-          </p>
+        @if (extraindoPdf()) {
+          <div class="flex flex-col items-center justify-center py-2" role="status" aria-live="polite">
+            <app-icon name="spinner" class="w-6 h-6 text-ciee-navy mb-2"></app-icon>
+            <p class="text-sm font-semibold text-slate-700">Extraindo dados do currículo...</p>
+          </div>
+        } @else if (arquivoSelecionado(); as arq) {
+          <div class="flex flex-col items-center py-1" role="status" aria-live="polite">
+            <span cieeBadge variant="success" class="mb-2 inline-flex items-center gap-1.5">
+              <app-icon name="check" class="w-3.5 h-3.5"></app-icon>
+              Arquivo anexado
+            </span>
+            <p class="text-sm font-bold text-slate-800">{{ arq.name }}</p>
+            <p class="text-xs text-slate-500">{{ (arq.size / 1024 / 1024).toFixed(2) }} MB</p>
+          </div>
+        } @else {
+          <div class="py-1 flex flex-col items-center">
+            <p class="text-sm text-slate-700 font-semibold">
+              Arraste e solte o currículo em PDF aqui ou
+            </p>
+            <button
+              type="button"
+              id="btn-selecionar-pdf"
+              (click)="acionarSelecaoArquivoManual()"
+              (keydown)="acionarUploadPorTeclado($event)"
+              cieeBtn
+              variant="outline"
+              size="sm"
+              class="mt-2.5 font-medium text-xs border-ciee-navy text-ciee-navy hover:bg-ciee-soft"
+            >
+              Escolher arquivo PDF
+            </button>
+            <p class="text-xs text-slate-400 mt-2">
+              Os dados encontrados preencherão o formulário abaixo.
+            </p>
+          </div>
+        }
+      </div>
+
+      @if (mensagemPdf(); as msg) {
+        <div
+          role="status"
+          aria-live="polite"
+          [class]="
+            tipoMensagemPdf() === 'sucesso'
+              ? 'mt-3 p-3 bg-emerald-50/80 border border-emerald-300 text-emerald-900 rounded-md text-xs'
+              : 'mt-3 p-3 bg-amber-50/80 border border-amber-300 text-amber-900 rounded-md text-xs'
+          "
+        >
+          {{ msg }}
         </div>
       }
     </div>
+  </ciee-card>
 
-    <!-- Alertas do PDF -->
-    @if (mensagemPdf(); as msg) {
-      <div [class]="tipoMensagemPdf() === 'sucesso' ? 'mt-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-xs' : 'mt-4 p-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-xs'">
-        {{ msg }}
-      </div>
-    }
-  </div>
-
-  <!-- Formulario Unificado de Cadastro -->
-  <form [formGroup]="form" (ngSubmit)="salvar()" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 sm:p-8">
-    <h2 class="text-lg font-semibold text-slate-900 border-b border-slate-100 pb-3 mb-6">
-      Dados do Candidato
-    </h2>
-
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-      <!-- Nome Completo (Obrigatorio) -->
-      <div class="sm:col-span-2">
-        <label class="block text-sm font-medium text-slate-700 mb-1">
-          Nome Completo <span class="text-rose-500">*</span>
-        </label>
-        <input 
-          type="text" 
-          formControlName="nomeCompleto"
-          placeholder="Ex: Ana Clara Souza"
-          class="w-full px-3 py-2 border rounded-lg text-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          [class.border-rose-400]="campoInvalido('nomeCompleto')"
-          [class.border-slate-300]="!campoInvalido('nomeCompleto')"
-        />
-        @if (campoInvalido('nomeCompleto')) {
-          <p class="mt-1 text-xs text-rose-500">O nome completo é obrigatório (mínimo 3 caracteres).</p>
-        }
-      </div>
-
-      <!-- E-mail (Obrigatorio) -->
-      <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">
-          E-mail <span class="text-rose-500">*</span>
-        </label>
-        <input 
-          type="email" 
-          formControlName="email"
-          placeholder="exemplo@dominio.com"
-          class="w-full px-3 py-2 border rounded-lg text-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          [class.border-rose-400]="campoInvalido('email')"
-          [class.border-slate-300]="!campoInvalido('email')"
-        />
-        @if (campoInvalido('email')) {
-          <p class="mt-1 text-xs text-rose-500">Informe um e-mail válido.</p>
-        }
-      </div>
-
-      <!-- Telefone -->
-      <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">
-          Telefone / WhatsApp
-        </label>
-        <input 
-          type="text" 
-          formControlName="telefone"
-          placeholder="(11) 98765-4321"
-          class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-
-      <!-- Area ou Cargo de Interesse -->
-      <div class="sm:col-span-2">
-        <label class="block text-sm font-medium text-slate-700 mb-1">
-          Área ou Cargo de Interesse
-        </label>
-        <input 
-          type="text" 
-          formControlName="cargoInteresse"
-          placeholder="Ex: Desenvolvedor .NET Pleno, Analista de Dados"
-          class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-
-      <!-- Resumo Profissional -->
-      <div class="sm:col-span-2">
-        <label class="block text-sm font-medium text-slate-700 mb-1">
-          Resumo Profissional
-        </label>
-        <textarea 
-          formControlName="resumoProfissional"
-          rows="4"
-          placeholder="Breve descrição das experiências, formação e competências principais..."
-          class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm transition focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        ></textarea>
-      </div>
+  <!-- Componente Interno CIEE: Formulário de Cadastro Simétrico e Acessível -->
+  <ciee-card>
+    <div cieeCardHeader>
+      <h2 cieeCardTitle class="text-base">Dados Pessoais e Profissionais</h2>
+      <p cieeCardDescription>
+        Campos sinalizados com asterisco (*) são de preenchimento obrigatório.
+      </p>
     </div>
 
-    <!-- Mensagens de Alerta Geral -->
-    @if (mensagemErro(); as erro) {
-      <div class="mt-6 p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-sm">
-        {{ erro }}
-      </div>
-    }
+    <form [formGroup]="form" (ngSubmit)="salvar()">
+      <div cieeCardContent class="space-y-5">
+        <!-- 1. Nome Completo -->
+        <div class="space-y-1.5">
+          <label for="campo-nome-completo" class="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+            Nome Completo <span class="text-rose-500" aria-hidden="true">*</span>
+          </label>
+          <div class="relative">
+            <input
+              id="campo-nome-completo"
+              type="text"
+              formControlName="nomeCompleto"
+              placeholder="Nome completo do candidato"
+              cieeInput
+              [status]="statusCampos().nomeCompleto"
+              [error]="campoInvalido('nomeCompleto')"
+              [class]="statusCampos().nomeCompleto !== 'manual' ? 'pr-10' : ''"
+              aria-required="true"
+              [attr.aria-invalid]="campoInvalido('nomeCompleto')"
+              [attr.aria-describedby]="obterMensagemErroCampo('nomeCompleto') ? 'erro-nome-completo' : null"
+            />
+            @if (statusCampos().nomeCompleto === 'extraido') {
+              <div
+                class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-emerald-600"
+                title="Extraído do currículo"
+                aria-hidden="true"
+              >
+                <app-icon name="check" class="w-4 h-4"></app-icon>
+              </div>
+            } @else if (statusCampos().nomeCompleto === 'nao_encontrado') {
+              <div
+                class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-amber-600"
+                title="Não encontrado no currículo"
+                aria-hidden="true"
+              >
+                <app-icon name="alert" class="w-4 h-4"></app-icon>
+              </div>
+            }
+          </div>
+          @if (obterMensagemErroCampo('nomeCompleto'); as msgErroNome) {
+            <p id="erro-nome-completo" role="alert" class="text-xs text-rose-500 font-medium mt-1">
+              {{ msgErroNome }}
+            </p>
+          }
+        </div>
 
-    <!-- Botoes de Acao -->
-    <div class="mt-8 pt-5 border-t border-slate-100 flex items-center justify-end space-x-3">
-      <a routerLink="/" class="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 transition">
-        Cancelar
-      </a>
-      <button 
-        type="submit" 
-        [disabled]="salvando()"
-        class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition disabled:opacity-50 flex items-center space-x-2">
-        @if (salvando()) {
-          <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-          <span>Salvando...</span>
-        } @else {
-          <span>Salvar Candidato</span>
+        <!-- 2. E-mail e Telefone (Grid Simétrico) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <!-- E-mail -->
+          <div class="space-y-1.5">
+            <label for="campo-email" class="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+              E-mail <span class="text-rose-500" aria-hidden="true">*</span>
+            </label>
+            <div class="relative">
+              <input
+                id="campo-email"
+                type="email"
+                formControlName="email"
+                placeholder="exemplo@dominio.com"
+                cieeInput
+                [status]="statusCampos().email"
+                [error]="campoInvalido('email')"
+                [class]="statusCampos().email !== 'manual' ? 'pr-10' : ''"
+                aria-required="true"
+                [attr.aria-invalid]="campoInvalido('email')"
+                [attr.aria-describedby]="obterMensagemErroCampo('email') ? 'erro-email' : null"
+              />
+              @if (statusCampos().email === 'extraido') {
+                <div
+                  class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-emerald-600"
+                  title="Extraído do currículo"
+                  aria-hidden="true"
+                >
+                  <app-icon name="check" class="w-4 h-4"></app-icon>
+                </div>
+              } @else if (statusCampos().email === 'nao_encontrado') {
+                <div
+                  class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-amber-600"
+                  title="Não encontrado no currículo"
+                  aria-hidden="true"
+                >
+                  <app-icon name="alert" class="w-4 h-4"></app-icon>
+                </div>
+              }
+            </div>
+            @if (obterMensagemErroCampo('email'); as msgErroEmail) {
+              <p id="erro-email" role="alert" class="text-xs text-rose-500 font-medium mt-1">
+                {{ msgErroEmail }}
+              </p>
+            }
+          </div>
+
+          <!-- Telefone -->
+          <div class="space-y-1.5">
+            <label for="campo-telefone" class="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+              Telefone
+            </label>
+            <div class="relative">
+              <input
+                id="campo-telefone"
+                type="text"
+                formControlName="telefone"
+                placeholder="(11) 98765-4321"
+                (input)="onTelefoneInput()"
+                cieeInput
+                [status]="statusCampos().telefone"
+                [class]="statusCampos().telefone !== 'manual' ? 'pr-10' : ''"
+                [attr.aria-describedby]="obterMensagemErroCampo('telefone') ? 'erro-telefone' : null"
+              />
+              @if (statusCampos().telefone === 'extraido') {
+                <div
+                  class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-emerald-600"
+                  title="Extraído do currículo"
+                  aria-hidden="true"
+                >
+                  <app-icon name="check" class="w-4 h-4"></app-icon>
+                </div>
+              } @else if (statusCampos().telefone === 'nao_encontrado') {
+                <div
+                  class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-amber-600"
+                  title="Não encontrado no currículo"
+                  aria-hidden="true"
+                >
+                  <app-icon name="alert" class="w-4 h-4"></app-icon>
+                </div>
+              }
+            </div>
+            @if (obterMensagemErroCampo('telefone'); as msgErroTel) {
+              <p id="erro-telefone" role="alert" class="text-xs text-rose-500 font-medium mt-1">
+                {{ msgErroTel }}
+              </p>
+            }
+          </div>
+        </div>
+
+        <!-- 3. Área ou Cargo de Interesse -->
+        <div class="space-y-1.5">
+          <label for="campo-cargo-interesse" class="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+            Área ou Cargo de Interesse
+          </label>
+          <div class="relative">
+            <input
+              id="campo-cargo-interesse"
+              type="text"
+              formControlName="cargoInteresse"
+              placeholder="Ex: Desenvolvimento C#, Suporte de TI, Administração"
+              cieeInput
+              [status]="statusCampos().cargoInteresse"
+              [class]="statusCampos().cargoInteresse !== 'manual' ? 'pr-10' : ''"
+              [attr.aria-describedby]="obterMensagemErroCampo('cargoInteresse') ? 'erro-cargo-interesse' : null"
+            />
+            @if (statusCampos().cargoInteresse === 'extraido') {
+              <div
+                class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-emerald-600"
+                title="Extraído do currículo"
+                aria-hidden="true"
+              >
+                <app-icon name="check" class="w-4 h-4"></app-icon>
+              </div>
+            } @else if (statusCampos().cargoInteresse === 'nao_encontrado') {
+              <div
+                class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center text-amber-600"
+                title="Não encontrado no currículo"
+                aria-hidden="true"
+              >
+                <app-icon name="alert" class="w-4 h-4"></app-icon>
+              </div>
+            }
+          </div>
+          @if (obterMensagemErroCampo('cargoInteresse'); as msgErroCargo) {
+            <p id="erro-cargo-interesse" role="alert" class="text-xs text-rose-500 font-medium mt-1">
+              {{ msgErroCargo }}
+            </p>
+          }
+        </div>
+
+        <!-- 4. Resumo Profissional -->
+        <div class="space-y-1.5">
+          <label for="campo-resumo-profissional" class="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+            Resumo Profissional
+          </label>
+          <div class="relative">
+            <textarea
+              id="campo-resumo-profissional"
+              formControlName="resumoProfissional"
+              rows="6"
+              placeholder="Principais experiências, cursos e qualificações..."
+              class="flex w-full rounded-md border px-3.5 py-2.5 text-sm min-h-[160px] resize-y transition-colors outline-none focus:outline-none focus-visible:ring-2 focus-visible:ring-ciee-navy focus-visible:ring-offset-1"
+              [class]="
+                (statusCampos().resumoProfissional === 'extraido'
+                  ? 'bg-emerald-50/70 border-emerald-300 text-emerald-950 placeholder:text-emerald-700/40 focus-visible:border-emerald-500 focus-visible:ring-emerald-400'
+                  : statusCampos().resumoProfissional === 'nao_encontrado'
+                    ? 'bg-amber-50/70 border-amber-300 text-amber-950 placeholder:text-amber-700/40 focus-visible:border-amber-500 focus-visible:ring-amber-400'
+                    : 'bg-white border-slate-300 text-slate-900 focus-visible:border-ciee-navy focus-visible:ring-ciee-navy') +
+                (statusCampos().resumoProfissional !== 'manual' ? ' pr-10' : '')
+              "
+              [attr.aria-describedby]="obterMensagemErroCampo('resumoProfissional') ? 'erro-resumo-profissional' : null"
+            ></textarea>
+            @if (statusCampos().resumoProfissional === 'extraido') {
+              <div
+                class="absolute right-3.5 top-3.5 pointer-events-none flex items-center justify-center text-emerald-600"
+                title="Extraído do currículo"
+                aria-hidden="true"
+              >
+                <app-icon name="check" class="w-4 h-4"></app-icon>
+              </div>
+            } @else if (statusCampos().resumoProfissional === 'nao_encontrado') {
+              <div
+                class="absolute right-3.5 top-3.5 pointer-events-none flex items-center justify-center text-amber-600"
+                title="Não encontrado no currículo"
+                aria-hidden="true"
+              >
+                <app-icon name="alert" class="w-4 h-4"></app-icon>
+              </div>
+            }
+          </div>
+          @if (obterMensagemErroCampo('resumoProfissional'); as msgErroResumo) {
+            <p id="erro-resumo-profissional" role="alert" class="text-xs text-rose-500 font-medium mt-1">
+              {{ msgErroResumo }}
+            </p>
+          }
+        </div>
+
+        @if (mensagemErro(); as erro) {
+          <div
+            role="alert"
+            class="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-md text-xs font-medium"
+          >
+            {{ erro }}
+          </div>
         }
-      </button>
-    </div>
-  </form>
+      </div>
+
+      <!-- Rodapé: Botão de ação primária -->
+      <div cieeCardFooter>
+        <button
+          type="submit"
+          [disabled]="salvando()"
+          cieeBtn
+          variant="secondary"
+          size="default"
+          class="min-w-[150px]"
+        >
+          @if (salvando()) {
+            <span>Salvando...</span>
+          } @else {
+            <span>Salvar Candidato</span>
+          }
+        </button>
+      </div>
+    </form>
+  </ciee-card>
 </div>

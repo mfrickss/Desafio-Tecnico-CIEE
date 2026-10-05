@@ -1,132 +1,140 @@
-<div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-  <!-- Topo: Titulo e Acoes -->
-  <div class="sm:flex sm:items-center sm:justify-between mb-8">
-    <div>
-      <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Candidatos Cadastrados</h1>
-      <p class="mt-1 text-sm text-slate-500">
-        Painel da equipe de recrutamento para triagem e consulta de talentos.
-      </p>
-    </div>
-    <div class="mt-4 sm:mt-0">
-      <a routerLink="/cadastro" class="inline-flex items-center justify-center px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition">
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-        </svg>
-        Novo Candidato
-      </a>
-    </div>
+<div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 font-sans transition-all duration-300 ease-out">
+  <!-- Topo da Página: Título e Resumo Operacional -->
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-ciee-dark tracking-tight">Candidatos Cadastrados</h1>
+    <p class="text-sm text-slate-500 mt-0.5">
+      Gerenciamento e triagem de talentos com leitura inteligente de currículos.
+    </p>
   </div>
 
-  <!-- Banner de Sucesso (apos salvar) -->
+  <!-- Alerta de Confirmação (Após cadastro) -->
   @if (alertaSucesso()) {
-    <div class="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-sm flex items-center justify-between">
+    <div class="mb-6 p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-sm flex items-center justify-between shadow-xs transition-all duration-300 ease-out" role="status" aria-live="polite">
       <div class="flex items-center space-x-2">
-        <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-        </svg>
-        <span>Candidato cadastrado com sucesso!</span>
+        <app-icon name="check" class="w-4 h-4 text-emerald-600 flex-shrink-0"></app-icon>
+        <span class="font-semibold text-xs">Candidato cadastrado com sucesso no sistema CIEE.</span>
       </div>
-      <button (click)="fecharAlerta()" class="text-emerald-700 hover:text-emerald-900 font-bold">&times;</button>
+      <button (click)="fecharAlerta()" class="text-emerald-700 hover:text-emerald-900 font-bold p-1 text-base leading-none" aria-label="Fechar alerta de sucesso">&times;</button>
     </div>
   }
 
-  <!-- Barra de Busca -->
-  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6 flex items-center space-x-3">
-    <svg class="w-5 h-5 text-slate-400 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-    </svg>
-    <input 
-      type="text" 
-      [(ngModel)]="termoBusca" 
-      (ngModelChange)="buscar()"
-      placeholder="Buscar por nome, e-mail ou cargo..."
-      class="w-full text-sm text-slate-800 focus:outline-none bg-transparent"
-    />
+  <!-- Barra de Pesquisa com Input CIEE -->
+  <div class="mb-6 flex items-center gap-3">
+    <div class="relative flex-1">
+      <input 
+        id="campo-busca-candidato"
+        type="text" 
+        [(ngModel)]="termoBusca" 
+        (ngModelChange)="aoDigitarBusca()"
+        placeholder="Buscar candidato por nome, e-mail institucional ou área de interesse..."
+        cieeInput
+        aria-label="Buscar candidato por nome, e-mail institucional ou área de interesse"
+      />
+    </div>
     @if (termoBusca) {
-      <button (click)="limparBusca()" class="text-xs text-slate-400 hover:text-slate-600 px-2 py-1">
-        Limpar
+      <button (click)="limparBusca()" cieeBtn variant="outline" size="sm">
+        Limpar filtro
       </button>
     }
   </div>
 
-  <!-- Tabela de Candidatos -->
-  <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+  <!-- Tabela de Candidatos com Componente CIEE -->
+  <ciee-table>
     @if (carregando()) {
-      <div class="p-12 text-center">
-        <div class="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-        <p class="text-sm text-slate-500 font-medium">Carregando candidatos...</p>
-      </div>
+      <tbody cieeTableBody>
+        <tr cieeTableRow>
+          <td cieeTableCell colspan="4" class="p-8 text-center text-slate-500">
+            <app-icon name="spinner" class="w-6 h-6 text-ciee-navy mb-2"></app-icon>
+            <p class="text-xs font-semibold">Carregando candidatos...</p>
+          </td>
+        </tr>
+      </tbody>
+    } @else if (erroConexao()) {
+      <tbody cieeTableBody>
+        <tr cieeTableRow>
+          <td cieeTableCell colspan="4" class="p-10 text-center">
+            <div class="w-12 h-12 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3" aria-hidden="true">
+              <app-icon name="error-triangle" class="w-6 h-6"></app-icon>
+            </div>
+            <h3 class="text-sm font-bold text-slate-800" role="alert">{{ tituloErro() }}</h3>
+            <p class="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+              {{ descricaoErro() }}
+            </p>
+            <div class="mt-4 flex items-center justify-center gap-3">
+              <button (click)="carregar()" cieeBtn variant="outline" size="sm" class="text-xs">
+                Tentar novamente
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
     } @else if (candidatos().length === 0) {
-      <div class="p-12 text-center">
-        <svg class="mx-auto h-12 w-12 text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-        </svg>
-        <h3 class="text-base font-semibold text-slate-700">Nenhum candidato encontrado</h3>
-        <p class="text-xs text-slate-400 mt-1">Comece cadastrando um novo perfil ou altere o termo da busca.</p>
-        <div class="mt-4">
-          <a routerLink="/cadastro" class="text-sm font-medium text-indigo-600 hover:text-indigo-800">
-            Cadastrar candidato agora &rarr;
-          </a>
-        </div>
-      </div>
+      <tbody cieeTableBody>
+        <tr cieeTableRow>
+          <td cieeTableCell colspan="4" class="p-12 text-center">
+            <div class="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-3">
+              <app-icon name="users" class="w-6 h-6"></app-icon>
+            </div>
+            <h3 class="text-sm font-bold text-slate-800">Nenhum candidato encontrado</h3>
+            <p class="text-xs text-slate-400 mt-1">Ajuste o termo de busca ou adicione um novo candidato pelo menu superior.</p>
+          </td>
+        </tr>
+      </tbody>
     } @else {
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
-          <thead class="bg-slate-50 text-slate-600 font-semibold uppercase text-xs tracking-wider">
-            <tr>
-              <th scope="col" class="px-6 py-3.5">Nome / Contato</th>
-              <th scope="col" class="px-6 py-3.5">Cargo / Interesse</th>
-              <th scope="col" class="px-6 py-3.5">Origem</th>
-              <th scope="col" class="px-6 py-3.5">Data Cadastro</th>
-              <th scope="col" class="px-6 py-3.5 text-right">Ação</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100 bg-white">
-            @for (c of candidatos(); track c.id) {
-              <tr class="hover:bg-slate-50 transition">
-                <td class="px-6 py-4">
-                  <div class="font-medium text-slate-900">{{ c.nomeCompleto }}</div>
-                  <div class="text-xs text-slate-500 mt-0.5">{{ c.email }}</div>
-                  @if (c.telefone) {
-                    <div class="text-xs text-slate-400">{{ c.telefone }}</div>
-                  }
-                </td>
-                <td class="px-6 py-4">
-                  @if (c.cargoInteresse) {
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
-                      {{ c.cargoInteresse }}
-                    </span>
-                  } @else {
-                    <span class="text-xs text-slate-400 italic">Não informado</span>
-                  }
-                </td>
-                <td class="px-6 py-4">
-                  @if (c.teveOrigemPdf) {
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
-                      <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                      </svg>
-                      Com PDF
-                    </span>
-                  } @else {
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                      Manual
-                    </span>
-                  }
-                </td>
-                <td class="px-6 py-4 text-xs text-slate-500 whitespace-nowrap">
-                  {{ c.dataCadastro | date:'dd/MM/yyyy HH:mm' }}
-                </td>
-                <td class="px-6 py-4 text-right whitespace-nowrap">
-                  <a [routerLink]="['/detalhes', c.id]" class="text-xs font-medium text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition">
-                    Ver detalhes &rarr;
-                  </a>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
+      <thead cieeTableHeader>
+        <tr cieeTableRow>
+          <th cieeTableHead class="w-2/5">Candidato / Contato</th>
+          <th cieeTableHead class="w-1/4">Área de Interesse</th>
+          <th cieeTableHead class="w-1/6">Origem</th>
+          <th cieeTableHead class="w-1/6 text-right">Ações</th>
+        </tr>
+      </thead>
+      <tbody cieeTableBody>
+        @for (c of candidatos(); track c.id) {
+          <tr cieeTableRow class="hover:bg-slate-50 transition cursor-pointer">
+            <td cieeTableCell>
+              <a [routerLink]="['/detalhes', c.id]" class="font-bold text-slate-900 hover:text-ciee-navy transition block">
+                {{ c.nomeCompleto }}
+              </a>
+              <div class="text-xs text-slate-500 mt-0.5">
+                {{ c.email }}
+                @if (c.telefone) {
+                  <span> &bull; {{ c.telefone }}</span>
+                }
+              </div>
+            </td>
+            <td cieeTableCell>
+              @if (c.cargoInteresse) {
+                <span class="text-xs text-slate-700 font-medium">{{ c.cargoInteresse }}</span>
+              } @else {
+                <span class="text-xs text-slate-400 italic">Não informado</span>
+              }
+            </td>
+            <td cieeTableCell>
+              @if (c.teveOrigemPdf) {
+                <span cieeBadge variant="outline" class="gap-1.5 font-semibold">
+                  <img src="assets/pdfIcon.png" alt="PDF" class="w-3.5 h-3.5 object-contain inline-block" />
+                  PDF
+                </span>
+              } @else {
+                <span cieeBadge variant="outline">
+                  Manual
+                </span>
+              }
+            </td>
+            <td cieeTableCell class="text-right">
+              <a 
+                [routerLink]="['/detalhes', c.id]"
+                cieeBtn 
+                variant="ghost" 
+                size="sm"
+                class="text-ciee-navy hover:text-ciee-blue hover:bg-ciee-tint">
+                Ver detalhes
+              </a>
+            </td>
+          </tr>
+        }
+      </tbody>
     }
-  </div>
+  </ciee-table>
 </div>
