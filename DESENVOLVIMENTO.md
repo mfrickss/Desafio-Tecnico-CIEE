@@ -56,7 +56,7 @@ O trabalho foi estruturado em 5 fases interdependentes:
 - **Motivação:** A arquitetura baseada em Controllers explícitos (`[ApiController]`) oferece clara separação de responsabilidades e facilita a documentação e manutenção corporativa.
 - **Injeção de Dependências:** Uso estrito do container nativo de DI do .NET (`IServiceCollection`), aplicando ciclos de vida adequados:
   - `AppDbContext`: ciclo `Scoped`.
-  - `IPdfExtractionService`: ciclo `Transient`.
+  - `IPdfExtractionService`: ciclo `Scoped`.
   - Validadores do `FluentValidation`: ciclo `Scoped`.
 - **Consultas Assíncronas e Otimização:** Todas as operações de banco utilizam chamadas assíncronas (`ToListAsync`, `SaveChangesAsync`) e o modificador `.AsNoTracking()` em consultas de leitura, evitando sobrecarga no Change Tracker do EF Core.
 
@@ -178,7 +178,7 @@ A conformidade da solução foi comprovada por meio de verificação em múltipl
 
 ### 6.1 Testes Automatizados no Backend (xUnit)
 
-- **Suíte de Testes:** 56 testes automatizados xUnit cobrindo:
+- **Suíte de Testes:** 103 testes automatizados xUnit cobrindo:
   - Validação de entrada com `FluentValidation` (campos obrigatórios, limites de tamanho e validação de formato de e-mail).
   - Reconstrução e normalização de texto em PDFs com acentuação corrompida.
   - Extração de cargos para múltiplas áreas (Direito, Saúde, TI, Engenharia, Administração).
@@ -186,7 +186,7 @@ A conformidade da solução foi comprovada por meio de verificação em múltipl
   - Validação de arquivos na API: rejeição de extensões não-PDF, arquivos acima de 5 MB, streams vazios e verificação de assinatura binária de magic bytes (`%PDF-`).
   - Serialização canônica de datas em UTC com o conversor customizado `Iso8601UtcDateTimeJsonConverter`.
 
-### 6.2 Testes Automatizados no Frontend (19 testes com Node test runner)
+### 6.2 Testes Automatizados no Frontend (22 testes com Node test runner)
 
 - Testes unitários para o serviço `CandidatoService` cobrindo sucesso e tratamento de erros de API.
 - Testes de componentes para `CadastroComponent` e `ListagemComponent` utilizando o runner nativo do Node.js (`node --test`).
@@ -202,7 +202,7 @@ A conformidade da solução foi comprovada por meio de verificação em múltipl
 
 ## 7. Tempo Dedicado ao Desafio
 
-O tempo total dedicado ao projeto foi de aproximadamente **20 horas**, distribuídas de maneira equilibrada entre as fases de desenvolvimento:
+O tempo total dedicado ao projeto foi de aproximadamente **18 horas**, distribuídas de maneira equilibrada entre as fases de desenvolvimento:
 
 | Etapa                                 | Descrição                                                                            | Tempo Dedicado |
 | :------------------------------------ | :----------------------------------------------------------------------------------- | :------------- |
