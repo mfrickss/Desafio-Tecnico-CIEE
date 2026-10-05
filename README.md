@@ -42,7 +42,7 @@ Desafio-Tecnico-CIEE/
 │   ├── Models/                      # Entidades de domínio (Candidato)
 │   ├── Services/                    # Motor de extração (PdfExtractionService)
 │   └── Validators/                  # Validações fluentes (CriarCandidatoDtoValidator)
-├── Ciee.Curriculos.Tests/            # Suíte de testes unitários xUnit (86 testes aprovados)
+├── Ciee.Curriculos.Tests/            # Suíte de testes unitários xUnit (103 testes aprovados)
 │   ├── CandidatosControllerTests.cs # Testes de upload, extensões, limites e magic bytes
 │   ├── PdfExtractionServiceTests.cs # Testes de extração, diacríticos, telefones e cargos
 │   └── GeradorPdfParaTesteApi.cs    # Utilitário para geração de PDFs em memória/disco
@@ -148,10 +148,10 @@ CREATE INDEX [IX_Candidatos_Email] ON [Candidatos] ([Email]);
 ## 5. Comandos de Execução e Testes
 
 ### 5.1. Testes Automatizados do Backend (xUnit)
-O projeto conta com suíte de testes com **86 testes automatizados**, cobrindo validações de DTOs, serialização UTC, helpers de telefone e todos os casos de borda do motor de PDF:
+O projeto conta com suíte de testes com **103 testes automatizados aprovados**, cobrindo validações de entrada com FluentValidation, interceptador global de exceções RFC 7807 (ProblemDetails), serialização canônica UTC, sanitização de telefones, parsing universal de cargos e todos os cenários de borda do motor de PDF:
 
 ```powershell
-# Execução direta com cache de restore local
+# Execução recomendada (utiliza o cache de restore pré-compilado local, sem depender de acesso externo ou permissões em feeds remotos do NuGet)
 dotnet test .\Ciee.Curriculos.Tests\Ciee.Curriculos.Tests.csproj --no-restore
 
 # Execução padrão completa
@@ -159,7 +159,7 @@ dotnet test .\Ciee.Curriculos.Tests\Ciee.Curriculos.Tests.csproj
 ```
 
 ### 5.2. Testes Automatizados do Frontend (Angular)
-A suíte de testes unitários do frontend valida formulários reativos, serviços HTTP e componentes:
+A suíte de testes unitários do frontend conta com **22 testes aprovados** distribuídos em 5 suítes (executadas via test runner nativo do Node.js com suporte a TypeScript), validando lógica de estado de formulários reativos, ciclo de vida da flag teveOrigemPdf, normalização de contratos de erro RFC 7807 e serviços HTTP:
 
 ```powershell
 cd ciee-curriculos-web
